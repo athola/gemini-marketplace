@@ -1,0 +1,378 @@
+openapi: 3.1.0
+info:
+  title: Gemini CLI Marketplace Extension API
+  version: 0.1.0
+  summary: Local service surface for marketplace commands invoked by the Gemini CLI extension.
+servers:
+  - url: http://localhost:{port}
+    description: Local ephemeral server spawned by extension (port negotiated dynamically)
+    variables:
+      port:
+        default: "41085"
+paths:
+  /marketplace/extensions:
+    get:
+      summary: List extensions across all configured sources.
+      operationId: listExtensions
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Optional keyword to filter by name or description.
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Restrict results to a single category/tag.
+        - name: source
+          in: query
+          schema:
+            type: string
+          description: Filter by source slug.
+        - name: installed
+          in: query
+          schema:
+            type: boolean
+          description: true to include only installed extensions; false for not installed; omit for all.
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+          description: Page size (default 50).
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+          description: Pagination offset (default 0).
+      responses:
+        "200":
+          description: Extensions returned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionListResponse"
+        "429":
+          description: Rate limit prevents new fetch; includes reset information.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitResponse"
+  /marketplace/extensions/{extensionId}:
+    get:
+      summary: Fetch detailed information for a single extension.
+      operationId: getExtension
+      parameters:
+        - name: extensionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Extension detail payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtensionDetail"
+        "404":
+          description: Extension not found.
+  /marketplace/sources:
+    get:
+      summary: List configured marketplace sources.
+      operationId: listSources
+      responses:
+        "200":
+          description: Sources returned.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceListResponse"
+    post:
+      summary: Add a new marketplace source.
+      operationId: addSource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceCreateRequest"
+      responses:
+        "201":
+          description: Source added successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Source"
+        "400":
+          description: Invalid URL or manifest structure.
+        "409":
+          description: Source slug already exists.
+  /marketplace/sources/{sourceSlug}:
+    delete:
+      summary: Remove an existing marketplace source.
+      operationId: deleteSource
+      parameters:
+        - name: sourceSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Source removed.
+        "404":
+          description: Source not found.
+  /marketplace/cache/refresh:
+    post:
+      summary: Force refresh marketplace data, bypassing cache.
+      operationId: refreshCache
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "202":
+          description: Refresh accepted and queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponse"
+        "429":
+          description: Refresh denied due to active rate-limit window.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RateLimitResponse"
+  /marketplace/status:
+    get:
+      summary: Retrieve overall marketplace health, cache, and rate-limit status.
+      operationId: getStatus
+      responses:
+        "200":
+          description: Status information.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+
+components:
+  schemas:
+    ExtensionListResponse:
+      type: object
+      required:
+        - extensions
+        - pagination
+      properties:
+        extensions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExtensionSummary"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    ExtensionSummary:
+      type: object
+      required:
+        - id
+        - displayName
+        - sourceSlug
+        - version
+        - installStatus
+        - tags
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        sourceSlug:
+          type: string
+        version:
+          type: string
+        installStatus:
+          $ref: "#/components/schemas/InstallStatus"
+        summary:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        categories:
+          type: array
+          items:
+            type: string
+        cacheExpiresAt:
+          type: string
+          format: date-time
+    ExtensionDetail:
+      allOf:
+        - $ref: "#/components/schemas/ExtensionSummary"
+        - type: object
+          required:
+            - repositoryUrl
+            - author
+          properties:
+            repositoryUrl:
+              type: string
+              format: uri
+            homepageUrl:
+              type: string
+              format: uri
+              nullable: true
+            documentationUrl:
+              type: string
+              format: uri
+              nullable: true
+            author:
+              type: string
+            license:
+              type: string
+              nullable: true
+            compatibility:
+              type: array
+              items:
+                type: string
+            readmeExcerpt:
+              type: string
+              nullable: true
+            manifestChecksum:
+              type: string
+            lastSyncedAt:
+              type: string
+              format: date-time
+    SourceListResponse:
+      type: object
+      required:
+        - sources
+      properties:
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+    Source:
+      type: object
+      required:
+        - slug
+        - displayName
+        - url
+        - sourceType
+        - enabled
+        - default
+      properties:
+        slug:
+          type: string
+        displayName:
+          type: string
+        url:
+          type: string
+          format: uri
+        sourceType:
+          type: string
+          enum: [GithubRepo, GitUrl, LocalPath]
+        default:
+          type: boolean
+        enabled:
+          type: boolean
+        requiresAuth:
+          type: boolean
+        lastSyncedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastSyncStatus:
+          type: string
+          enum: [Idle, Syncing, Healthy, Warning, Error]
+    SourceCreateRequest:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+        displayName:
+          type: string
+        requiresAuth:
+          type: boolean
+          default: false
+    RefreshRequest:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+        invalidateCache:
+          type: boolean
+          default: false
+    RefreshResponse:
+      type: object
+      required:
+        - jobId
+        - status
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [Queued, Running]
+        etaSeconds:
+          type: integer
+          nullable: true
+    RateLimitResponse:
+      type: object
+      required:
+        - sourceSlug
+        - resetAt
+      properties:
+        sourceSlug:
+          type: string
+        resetAt:
+          type: string
+          format: date-time
+        remainingRequests:
+          type: integer
+          nullable: true
+    StatusResponse:
+      type: object
+      required:
+        - cache
+        - sources
+      properties:
+        cache:
+          type: object
+          properties:
+            totalEntries:
+              type: integer
+            staleEntries:
+              type: integer
+            defaultTtlHours:
+              type: integer
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/Source"
+        pendingRefreshJobs:
+          type: array
+          items:
+            type: string
+    Pagination:
+      type: object
+      required:
+        - limit
+        - offset
+        - total
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+    InstallStatus:
+      type: string
+      enum: [NotInstalled, Installed, UpdateAvailable, Unknown]

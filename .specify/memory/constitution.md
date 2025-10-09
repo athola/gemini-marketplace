@@ -1,50 +1,39 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Gemini Marketplace Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Test-First CLI Delivery (NON-NEGOTIABLE)
+Every new behavior ships with failing automated coverage first (unit or integration) using `cargo test`, `assert_cmd`, and `wiremock` where appropriate. Passing tests are the release gate for all work.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Consistent Dual-Format UX
+All commands must support both human-readable table output and JSON flags. Error messages return actionable remediation steps and non-zero exit codes. API surfaces mirror CLI behavior.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Offline-First Resilience
+Features must function against cached data when network calls fail. Cache TTL, invalidation, and warning pathways are mandatory considerations for each story.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Observability & Diagnostics
+Structured logging (JSON when `--json` or env flag is set) and traceable error contexts are required. Rate-limit countdowns and skipped manifest warnings must surface to users.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Dependency & Version Stewardship
+The minimum supported Rust version (MSRV) is pinned at 1.82.0. New third-party crates require documented rationale in plan/research. Breaking toolchain updates need migration notes.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Delivery Standards
+- **Language & Tooling**: Rust 1.82.0 (stable toolchain), `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test`.
+- **Configuration**: `rust-toolchain.toml` enforced at repo root. All platform-specific paths go through the `directories` crate.
+- **Security**: Credentials are never stored; rely on OS credential helpers. Commands handling private sources must warn users when creds are missing.
+- **Performance**: Cached listing responses must render within 2 seconds; rate-limit queues must provide ETA feedback.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Development Workflow & Quality Gates
+1. Prepare design artifacts (spec, plan, research) before implementation.
+2. Add failing tests for each task/story prior to implementation code.
+3. Implement functionality respecting module boundaries (`src/marketplace/...`) and update documentation.
+4. Run `cargo fmt`, `cargo clippy`, and full `cargo test` locally before requesting review.
+5. Reviews check constitution compliance; violations require explicit justification in plan/tasks and approval.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+This constitution supersedes ad-hoc practices for the Gemini Marketplace project. Amendments require:
+- Documented rationale in `research.md`
+- Approval from project maintainers
+- Version bump noted below with ratification date
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-10-09 | **Last Amended**: 2025-10-09

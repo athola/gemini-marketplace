@@ -1,0 +1,6 @@
+warns = [
+  "clippy::pedantic",
+  "clippy::nursery"
+]
+
+allow-macro-by-default = false
