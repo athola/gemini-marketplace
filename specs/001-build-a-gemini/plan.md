@@ -10,9 +10,9 @@ Build a Rust-based Gemini CLI extension that reads third-party catalogs from Git
 ## Technical Context
 
 **Language/Version**: Rust 1.82.0 (MSRV aligned with Gemini CLI extension tooling; newer ICU crates require ≥1.82)  
-**Primary Dependencies**: reqwest + tokio (HTTP), serde/serde_json (manifests), directories (config paths), thiserror/anyhow (errors), indicatif (UX); dev: assert_cmd, insta, wiremock, humantime, axum. These libraries match the Gemini CLI ecosystem, in order to bundle the extension without extra native deps.  
+**Primary Dependencies**: reqwest + tokio (HTTP), serde/serde_json (manifests), directories (config paths), thiserror/anyhow (errors), indicatif (UX); dev stack: assert_cmd, insta, predicates, humantime, axum (for in-process test servers). These libraries match the Gemini CLI ecosystem, letting us bundle the extension without extra native deps.  
 **Storage**: Per-source JSON cache under `$GEMINI_CONFIG/extensions/marketplace/` with TTL metadata and manual refresh. Avoid SQLite to keep the cache inspectable and version-control friendly.  
-**Testing**: `cargo test` unit coverage plus assert_cmd CLI contracts, wiremock-backed integration tests with insta snapshots. This keeps the test loop fast while allowing for Gemini-native invocation.
+**Testing**: `cargo test` unit coverage plus assert_cmd CLI contracts and axum-backed integration tests. This keeps the test loop fast while invoking the CLI in a similar manner to Gemini.
 **Target Platform**: Linux and macOS official; Windows 11+ best-effort via directories crate and documented caveats  
 **Project Type**: Rust CLI extension crate integrated with Gemini CLI  
 **Performance Goals**: List rendering ≤2s from cache; remote fetch optimized via search-before-fetch when enabled. Maintain these thresholds such that CLI users don’t wait longer than Gemini’s typical command latency.  

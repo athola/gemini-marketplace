@@ -6,7 +6,7 @@
 
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};

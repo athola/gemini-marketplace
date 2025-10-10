@@ -36,8 +36,10 @@ impl Config {
             });
         }
 
-        let project_dirs = ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
-            .ok_or_else(|| MarketplaceError::Configuration("Unable to resolve project directories".into()))?;
+        let project_dirs =
+            ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION).ok_or_else(|| {
+                MarketplaceError::Configuration("Unable to resolve project directories".into())
+            })?;
 
         Ok(Self {
             cache_dir: project_dirs.cache_dir().to_path_buf(),

@@ -1,8 +1,6 @@
 //! Catalog service responsible for aggregating extensions across sources,
 //! applying filtering, and translating results for CLI/API consumers.
 
-use std::time::Duration;
-
 use anyhow::Result;
 use serde::Serialize;
 
@@ -47,7 +45,11 @@ pub struct ListResponse {
 }
 
 impl CatalogService {
-    pub fn new(fetcher: SourceFetcher, prefs: PreferencesService, sources: Vec<MarketplaceSource>) -> Self {
+    pub fn new(
+        fetcher: SourceFetcher,
+        prefs: PreferencesService,
+        sources: Vec<MarketplaceSource>,
+    ) -> Self {
         Self {
             fetcher,
             prefs,
@@ -66,7 +68,10 @@ impl CatalogService {
         for source in self.sources.iter().filter(|src| src.enabled) {
             match self.fetch_source(source, request.prefetch_filter).await {
                 Ok(extensions) => entries.extend(make_entries(source, extensions)),
-                Err(SourceWarning::Cached { extensions, warning }) => {
+                Err(SourceWarning::Cached {
+                    extensions,
+                    warning,
+                }) => {
                     warnings.push(warning);
                     entries.extend(make_entries(source, extensions));
                 }
@@ -89,40 +94,47 @@ impl CatalogService {
         match self.fetcher.sync_source(source).await {
             Ok(list) => Ok(list),
             Err(err) => match err {
-                MarketplaceError::RateLimited { source: slug, reset_at } => {
-                    let mut message = format!("Source {slug} is rate limited");
+                MarketplaceError::RateLimited {
+                    source_slug,
+                    reset_at,
+                } => {
+                    let mut warning = format!("Source {source_slug} is rate limited");
                     if let Some(ts) = reset_at {
-                        message.push_str(&format!(" (resets at {ts})"));
+                        warning.push_str(&format!(" (resets at {ts})"));
                     }
-                    let cached = self
-                        .fetcher
-                        .cached_extensions(&source.slug)
-                        .map_err(|cache_err| SourceWarning::Fatal {
-                            warning: format!(
-                                "{}; additionally failed to read cache: {}",
-                                message, cache_err
-                            ),
-                        })?;
-                    cached.map_or_else(
-                        || Err(SourceWarning::Fatal { warning: message }),
-                        |data| Err(SourceWarning::Cached { extensions: data, warning: message }),
-                    )
+                    let cached =
+                        self.fetcher
+                            .cached_extensions(&source.slug)
+                            .map_err(|cache_err| SourceWarning::Fatal {
+                                warning: format!(
+                                    "{warning}; additionally failed to read cache: {cache_err}"
+                                ),
+                            })?;
+                    if let Some(data) = cached {
+                        return Err(SourceWarning::Cached {
+                            extensions: data,
+                            warning,
+                        });
+                    }
+                    Err(SourceWarning::Fatal { warning })
                 }
                 MarketplaceError::Network(detail) => {
-                    let message = format!("Network error for {}: {}", source.slug, detail);
-                    let cached = self
-                        .fetcher
-                        .cached_extensions(&source.slug)
-                        .map_err(|cache_err| SourceWarning::Fatal {
-                            warning: format!(
-                                "{}; additionally failed to read cache: {}",
-                                message, cache_err
-                            ),
-                        })?;
-                    cached.map_or_else(
-                        || Err(SourceWarning::Fatal { warning: message }),
-                        |data| Err(SourceWarning::Cached { extensions: data, warning: message }),
-                    )
+                    let warning = format!("Network error for {}: {}", source.slug, detail);
+                    let cached =
+                        self.fetcher
+                            .cached_extensions(&source.slug)
+                            .map_err(|cache_err| SourceWarning::Fatal {
+                                warning: format!(
+                                    "{warning}; additionally failed to read cache: {cache_err}"
+                                ),
+                            })?;
+                    if let Some(data) = cached {
+                        return Err(SourceWarning::Cached {
+                            extensions: data,
+                            warning,
+                        });
+                    }
+                    Err(SourceWarning::Fatal { warning })
                 }
                 other => Err(SourceWarning::Fatal {
                     warning: other.to_string(),
@@ -157,9 +169,12 @@ fn filter_entries(entries: Vec<ListEntry>, request: &ListRequest<'_>) -> Vec<Lis
                 }
             }
             if let Some(source_filter) = &source {
-                if entry.source.to_lowercase() != *source_filter
-                    && !entry.namespace.to_lowercase().starts_with(source_filter)
-                {
+                let slug_matches = entry.source.to_lowercase() == *source_filter;
+                let namespace_matches = entry
+                    .namespace
+                    .to_lowercase()
+                    .starts_with(&format!("{source_filter}/"));
+                if !slug_matches && !namespace_matches {
                     return false;
                 }
             }
@@ -197,8 +212,13 @@ fn make_entries(source: &MarketplaceSource, extensions: Vec<Extension>) -> Vec<L
 }
 
 enum SourceWarning {
-    Cached { extensions: Vec<Extension>, warning: String },
-    Fatal { warning: String },
+    Cached {
+        extensions: Vec<Extension>,
+        warning: String,
+    },
+    Fatal {
+        warning: String,
+    },
 }
 
 pub fn default_preferences() -> PreferencesService {
@@ -211,9 +231,13 @@ pub fn default_preferences() -> PreferencesService {
 }
 
 pub fn default_sources() -> Vec<MarketplaceSource> {
-    let base = std::env::var("GEMINI_MARKETPLACE_SOURCE_URL")
-        .unwrap_or_else(|_| "https://raw.githubusercontent.com/athola/gemini-marketplace/main/index.json".to_string());
-    let url = base.parse().unwrap_or_else(|_| "https://raw.githubusercontent.com/athola/gemini-marketplace/main/index.json".parse().unwrap());
+    let base = std::env::var("GEMINI_MARKETPLACE_SOURCE_URL").unwrap_or_else(|_| {
+        "https://raw.githubusercontent.com/athola/gemini-marketplace/main/index.json".to_string()
+    });
+    let url = base.parse().unwrap_or_else(|_| {
+        "https://raw.githubusercontent.com/athola/gemini-marketplace/main/index.json"
+            .parse()
+            .unwrap()
+    });
     vec![MarketplaceSource::default_curated(url)]
 }
-*** End Patch

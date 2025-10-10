@@ -4,7 +4,7 @@ This repo holds a Gemini CLI extension written in Rust that discovers third-part
 
 ## Project Layout (Why it looks like this)
 
-The source tree mirrors how Gemini CLI extensions load crates: a single binary entrypoint under `src/bin/` plus feature modules under `src/marketplace/`. Tests are split so unit tests stay fast and integration tests can spin up wiremock servers.
+The source tree mirrors how Gemini CLI extensions load crates: a single binary entrypoint under `src/bin/` plus feature modules under `src/marketplace/`. Tests are split so unit tests stay fast and integration tests can spin up lightweight axum servers instead of hitting GitHub.
 
 ```
 .
@@ -41,7 +41,7 @@ cargo run -- list --help
 
 ## Testing Strategy
 
-The plan leans on `wiremock` for HTTP playback and `assert_cmd` for end-to-end CLI assertions. The `GEMINI_MARKETPLACE_HOME` environment override is added so tests can isolate cache directories without touching the actual Gemini config. Run `cargo test` once rustup can write temp files; the sandbox blocks it here.
+The plan leans on axum-backed harnesses for HTTP playback and `assert_cmd` for end-to-end CLI assertions. The `GEMINI_MARKETPLACE_HOME` environment override isolates test cache directories and does not rely upon modifying the Gemini config. Run `cargo test` once rustup can write temp files; the sandbox blocks it here.
 
 ## Toolchain
 

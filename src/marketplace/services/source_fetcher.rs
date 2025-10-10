@@ -64,11 +64,10 @@ impl SourceFetcher {
         if response.status().as_u16() == 403 {
             if let Some(window) = Self::extract_rate_limit(&source.slug, &response) {
                 return Err(MarketplaceError::RateLimited {
-                    source: source.slug.clone(),
+                    source_slug: source.slug.clone(),
                     reset_at: window
                         .reset_at
-                        .map(|instant| humantime::format_rfc3339_seconds(instant).to_string())
-                        .unwrap_or_else(|| "unknown".into()),
+                        .map(|instant| humantime::format_rfc3339_seconds(instant).to_string()),
                 });
             }
         }
@@ -85,10 +84,7 @@ impl SourceFetcher {
             .map_err(|err| MarketplaceError::Network(format!("read body failed: {err}")))?;
 
         let manifest_urls = CatalogBody::parse(&body).map_err(|err| {
-            MarketplaceError::Configuration(format!(
-                "Invalid catalog for {}: {err}",
-                source.slug
-            ))
+            MarketplaceError::Configuration(format!("Invalid catalog for {}: {err}", source.slug))
         })?;
         let mut extensions = Vec::new();
         for manifest_url in manifest_urls {
@@ -110,11 +106,10 @@ impl SourceFetcher {
                     });
                 sleep(Duration::from_secs(5)).await;
                 return Err(MarketplaceError::RateLimited {
-                    source: source.slug.clone(),
+                    source_slug: source.slug.clone(),
                     reset_at: window
                         .reset_at
-                        .map(|instant| humantime::format_rfc3339_seconds(instant).to_string())
-                        .unwrap_or_else(|| "unknown".into()),
+                        .map(|instant| humantime::format_rfc3339_seconds(instant).to_string()),
                 });
             }
             let manifest_body = manifest_response.text().await.map_err(|err| {
@@ -153,7 +148,7 @@ impl SourceFetcher {
     ) -> Extension {
         let expires_at = SystemTime::now()
             .checked_add(ttl)
-            .unwrap_or_else(|| SystemTime::now());
+            .unwrap_or_else(SystemTime::now);
         Extension {
             id: ExtensionId::new(&source.slug, &manifest.name),
             source_slug: source.slug.clone(),

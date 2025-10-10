@@ -3,7 +3,7 @@
 **Input**: Design documents from `specs/001-build-a-gemini/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Integration tests are requested via the spec’s independent test criteria and plan’s testing strategy. Each user story phase includes targeted tests using `assert_cmd`, `wiremock`, and `insta`.
+**Tests**: Integration tests are requested via the spec’s independent test criteria and plan’s testing strategy. Each user story phase includes targeted tests using `assert_cmd`, axum-backed test servers, and `insta` snapshots.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -19,7 +19,7 @@
 **Purpose**: Project initialization and baseline tooling
 
 - [X] T001 [Setup] Scaffold Rust crate with `Cargo.toml`, `src/lib.rs`, and `src/bin/marketplace.rs` aligned to the planned structure
-- [X] T002 [Setup] Declare required crates in `Cargo.toml` (`tokio`, `reqwest`, `serde`, `directories`, `thiserror`, `anyhow`, `indicatif`, dev `assert_cmd`, `insta`, `wiremock`)
+- [X] T002 [Setup] Declare required crates in `Cargo.toml` (`tokio`, `reqwest`, `serde`, `directories`, `thiserror`, `anyhow`, `indicatif`, dev `assert_cmd`, `insta`, `predicates`)
 - [X] T003 [Setup] Add repository-wide tooling configs (`rust-toolchain.toml`, `.cargo/config.toml`, `clippy.toml`) enforcing Rust 1.82.0 and lint rules
 - [X] T004 [Setup] Create testing scaffolds (`tests/integration/`, `tests/unit/`, `tests/common/mod.rs`) with placeholder harness setup
 
@@ -63,7 +63,7 @@
 
 ### Tests for User Story 1
 
-- [X] T024 [US1] Author `tests/integration/list_extensions.rs` using `wiremock` + `assert_cmd` to assert list output, caching, and warning behavior when manifests are skipped
+- [X] T024 [US1] Author `tests/integration/list_extensions.rs` using an in-process axum test server + `assert_cmd` to assert list output, caching, and warning behavior when manifests are skipped
 - [X] T025 [US1] Write tests for network failure messaging and cache fallback in `tests/integration/list_extensions.rs`
 
 ### Implementation for User Story 1

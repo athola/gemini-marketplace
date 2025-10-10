@@ -40,7 +40,10 @@ pub async fn execute(opts: ListOptions) -> Result<()> {
         category: opts.category.as_deref(),
         source: opts.source.as_deref(),
         installed_only: opts.installed_only,
-        prefetch_filter: matches!(service.preferences().search_mode(), SearchMode::PreFetchFilter),
+        prefetch_filter: matches!(
+            service.preferences().search_mode(),
+            SearchMode::PreFetchFilter
+        ),
     };
 
     let response = service.list(&request).await?;
@@ -88,4 +91,3 @@ fn render_table(entries: &[ListEntry]) {
         println!();
     }
 }
-*** End Patch

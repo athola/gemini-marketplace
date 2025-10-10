@@ -13,3 +13,9 @@ impl SourcesService {
         anyhow::bail!("add_source not yet implemented");
     }
 }
+
+impl Default for SourcesService {
+    fn default() -> Self {
+        Self::new()
+    }
+}

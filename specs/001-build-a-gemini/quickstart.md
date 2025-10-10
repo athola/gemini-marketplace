@@ -53,7 +53,7 @@ cargo build
    ```bash
    cargo test
    ```
-2. Execute integration suite (uses wiremock to simulate GitHub):
+2. Execute integration suite (uses axum-based test servers to simulate GitHub):
    ```bash
    cargo test --test integration
    ```

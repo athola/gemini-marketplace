@@ -13,3 +13,9 @@ impl RefreshService {
         anyhow::bail!("queue_refresh not yet implemented");
     }
 }
+
+impl Default for RefreshService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
