@@ -2,7 +2,7 @@
 
 use axum::{
     http::StatusCode,
-    routing::{delete, get, post},
+    routing::{delete, get},
     Router,
 };
 

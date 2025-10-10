@@ -6,7 +6,7 @@
 use std::net::SocketAddr;
 
 use axum::Router;
-use tokio::task::JoinHandle;
+use tokio::{net::TcpListener, task::JoinHandle};
 
 use crate::marketplace::api::{extensions, sources, status};
 use crate::marketplace::error::{MarketplaceError, Result};
@@ -31,14 +31,22 @@ impl ApiServer {
     }
 
     pub async fn run(self, addr: SocketAddr) -> Result<()> {
-        axum::Server::bind(&addr)
-            .serve(self.router.into_make_service())
+        let listener = TcpListener::bind(addr)
+            .await
+            .map_err(|err| MarketplaceError::Network(format!("API server bind error: {err}")))?;
+        axum::serve(listener, self.router.into_make_service())
             .await
             .map_err(|err| MarketplaceError::Network(format!("API server error: {err}")))
     }
 
     pub fn spawn(self, addr: SocketAddr) -> JoinHandle<Result<()>> {
         tokio::spawn(async move { self.run(addr).await })
+    }
+}
+
+impl Default for ApiServer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

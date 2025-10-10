@@ -2,6 +2,8 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
+use gemini_marketplace::marketplace::commands::list::{execute as execute_list, ListOptions};
+
 #[derive(Debug, Parser)]
 #[command(
     name = "gemini-marketplace",
@@ -80,12 +82,25 @@ enum SourcesCommand {
     },
 }
 
-fn main() -> ExitCode {
+#[tokio::main]
+async fn main() -> ExitCode {
     let cli = MarketplaceCli::parse();
     let result = match cli.command {
-        MarketplaceCommand::List { .. } => {
-            // TODO: invoke list command once implemented
-            Ok(())
+        MarketplaceCommand::List {
+            search,
+            category,
+            source,
+            installed,
+            json,
+        } => {
+            execute_list(ListOptions {
+                search,
+                category,
+                source,
+                installed_only: installed,
+                json,
+            })
+            .await
         }
         MarketplaceCommand::Show { .. } => Ok(()),
         MarketplaceCommand::Sources { .. } => Ok(()),

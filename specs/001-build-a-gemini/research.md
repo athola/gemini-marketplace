@@ -16,9 +16,9 @@ Rationale: JSON aligns with manifest schema (`gemini-extension.json`), keeps tro
 Alternatives considered: SQLite was rejected as overkill for the expected dataset size; in-memory-only caches were rejected because offline browsing is a requirement; a single cache file was rejected to simplify partial invalidation.
 
 ## Testing Strategy
-Decision: Adopt layered testing with `cargo test` for unit coverage, `assert_cmd`-powered CLI contract tests for marketplace commands, and `insta` snapshots for deterministic render output. Network interactions will be exercised via mocked GitHub responses using `wiremock` under integration tests.  
-Rationale: The spec emphasizes testable acceptance criteria and accurate display formatting; combining unit + contract + snapshot testing enforces behavior without relying on live APIs. `wiremock` enables rate-limit and failure scenarios to be reproduced locally.  
-Alternatives considered: Live GitHub integration tests were rejected due to rate-limit unpredictability; relying solely on unit tests was rejected because CLI UX regressions would be missed; custom HTTP stubs were rejected because `wiremock` accelerates test authoring.
+Decision: Adopt layered testing with `cargo test` for unit coverage, `assert_cmd`-powered CLI contract tests for marketplace commands, and `insta` snapshots for deterministic render output. Network interactions use axum-backed test servers so we can simulate rate limits and catalog shifts without pulling binaries.  
+Rationale: The spec emphasizes testable acceptance criteria and accurate display formatting; combining unit + contract + snapshot testing enforces behavior without relying on live APIs. Axum lets us script failure modes (rate limits, malformed manifests) while staying in-process.  
+Alternatives considered: Live GitHub integration tests were rejected due to rate-limit unpredictability; relying solely on unit tests was rejected because CLI UX regressions would be missed; external mocking frameworks were avoided to reduce MSRV and dependency churn.
 
 ## Target Platform Support
 Decision: Officially support Linux and macOS hosts (matching Gemini CLI’s primary targets) and treat Windows 11+ as best-effort by leveraging the `directories` crate, avoiding symlinks, and documenting PowerShell-specific notes in quickstart.  

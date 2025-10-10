@@ -26,8 +26,11 @@ pub enum MarketplaceError {
     #[error("network request failed: {0}")]
     Network(String),
 
-    #[error("rate limit active for source {source}: resets at {reset_at}")]
-    RateLimited { source: String, reset_at: String },
+    #[error("rate limit active for source {source_slug}{}", DisplayReset(reset_at))]
+    RateLimited {
+        source_slug: String,
+        reset_at: Option<String>,
+    },
 
     #[error("manifest invalid for repository {repository}: {reason}")]
     InvalidManifest { repository: String, reason: String },
@@ -55,5 +58,16 @@ impl MarketplaceError {
 
     pub fn configuration(msg: impl Into<String>) -> Self {
         Self::Configuration(msg.into())
+    }
+}
+
+struct DisplayReset<'a>(&'a Option<String>);
+
+impl<'a> std::fmt::Display for DisplayReset<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Some(value) => write!(f, " (resets at {value})"),
+            None => Ok(()),
+        }
     }
 }

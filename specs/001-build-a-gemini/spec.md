@@ -18,6 +18,7 @@
 - Q: How should the marketplace handle an extension repository when its root gemini-extension.json manifest is missing or fails validation? → A: Skip the extension, continue processing, and surface a warning in results
 - Q: How should the marketplace authenticate when a custom source requires private Git access? → A: Rely on existing Git credential helpers or environment variables without storing credentials
 - Q: What level of observability should the marketplace extension guarantee for troubleshooting and monitoring? → A: Dual-mode logs plus structured metrics (e.g., counters for cache hits, rate-limit waits)
+- Q: Which repository should ship as the default curated marketplace source at launch? → A: https://github.com/athola/gemini-marketplace (kept under our control so test data stays stable)
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -103,6 +104,7 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 - **FR-003**: System MUST allow users to view detailed information for any listed extension
 - **FR-004**: System MUST provide the GitHub repository URL for each extension to enable manual installation
 - **FR-005**: System MUST support at least one default marketplace source containing publicly available Gemini CLI extensions
+- **FR-005a**: The default curated marketplace source MUST be seeded from `https://github.com/athola/gemini-marketplace` and remain enabled unless the user explicitly disables it
 - **FR-006**: System MUST allow users to search extensions by keyword (supporting partial or full matches) in name or description, with two modes: (1) fetch all extensions from all sources then filter locally, or (2) optionally apply search filters to marketplace API requests before fetching to minimize API calls and improve performance
 - **FR-007**: System MUST allow users to add custom marketplace sources via GitHub repository URLs or git URLs
 - **FR-008**: System MUST allow users to list all configured marketplace sources

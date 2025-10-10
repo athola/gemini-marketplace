@@ -6,7 +6,7 @@
 
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
@@ -30,6 +30,12 @@ struct CacheFile {
     pub extensions: Vec<Extension>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CacheSnapshot {
+    pub entry: CacheEntry,
+    pub extensions: Vec<Extension>,
+}
+
 impl CacheStore {
     pub fn new(config: &Config) -> Result<Self> {
         let root = config.cache_dir();
@@ -41,7 +47,7 @@ impl CacheStore {
         self.root.join(format!("{source_slug}.json"))
     }
 
-    pub fn load(&self, source_slug: &str) -> Result<Option<CacheEntry>> {
+    pub fn load(&self, source_slug: &str) -> Result<Option<CacheSnapshot>> {
         let path = self.cache_path(source_slug);
         if !path.exists() {
             return Ok(None);
@@ -60,7 +66,7 @@ impl CacheStore {
             .map(|ext| ext.id.clone())
             .collect();
 
-        Ok(Some(CacheEntry {
+        let entry = CacheEntry {
             source_slug: source_slug.to_string(),
             manifest_checksum: cache_file
                 .extensions
@@ -72,7 +78,12 @@ impl CacheStore {
             fetched_at: cache_file.fetched_at,
             expires_at: cache_file.expires_at,
             extension_ids,
-            etag: cache_file.etag,
+            etag: cache_file.etag.clone(),
+        };
+
+        Ok(Some(CacheSnapshot {
+            entry,
+            extensions: cache_file.extensions,
         }))
     }
 
@@ -89,11 +100,17 @@ impl CacheStore {
             .checked_add(ttl)
             .ok_or_else(|| MarketplaceError::Configuration("Cache TTL overflow".into()))?;
 
+        let mut payload = extensions.to_vec();
+        for extension in &mut payload {
+            extension.cache_expires_at = Some(expires_at);
+            extension.last_synced_at = Some(fetched_at);
+        }
+
         let cache_file = CacheFile {
             fetched_at,
             expires_at,
             etag,
-            extensions: extensions.to_vec(),
+            extensions: payload,
         };
 
         let file = File::create(&path).map_err(|err| MarketplaceError::io(path.clone(), err))?;
