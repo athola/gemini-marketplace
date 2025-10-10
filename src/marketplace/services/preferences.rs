@@ -1,7 +1,8 @@
 //! Preferences service handles user-configurable settings like cache TTL.
 
-use crate::marketplace::models::domain::UserPreferences;
+use crate::marketplace::models::domain::{OutputFormat, SearchMode, UserPreferences};
 
+#[derive(Clone)]
 pub struct PreferencesService {
     prefs: UserPreferences,
 }
@@ -15,7 +16,18 @@ impl PreferencesService {
         self.prefs.cache_ttl_hours
     }
 
-    #[allow(dead_code)]
+    pub fn search_mode(&self) -> SearchMode {
+        self.prefs.search_mode.clone()
+    }
+
+    pub fn output_format(&self) -> OutputFormat {
+        self.prefs.output_format.clone()
+    }
+
+    pub fn auto_refresh_on_launch(&self) -> bool {
+        self.prefs.auto_refresh_on_launch
+    }
+
     pub fn update(&mut self, prefs: UserPreferences) {
         self.prefs = prefs;
     }

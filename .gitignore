@@ -1,0 +1,8 @@
+.codex
+.claude
+.grok
+target
+**/*.rs.bk
+.specify/cache
+.specify/tmp
+*.txt

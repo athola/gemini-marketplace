@@ -3,8 +3,10 @@
 
 use std::time::{Duration, SystemTime};
 
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ETAG, USER_AGENT};
 use reqwest::Client;
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use tokio::time::sleep;
 
 use crate::marketplace::cache::store::CacheStore;
@@ -38,9 +40,9 @@ impl SourceFetcher {
 
     pub async fn sync_source(&self, source: &MarketplaceSource) -> Result<Vec<Extension>> {
         let ttl = Duration::from_secs((self.prefs.cache_ttl_hours() as u64) * 3600);
-        if let Some(cache_entry) = self.cache.load(&source.slug)? {
-            if cache_entry.expires_at > SystemTime::now() {
-                // TODO: map cache_entry to denormalized extension list
+        if let Some(snapshot) = self.cache.load(&source.slug)? {
+            if snapshot.entry.expires_at > SystemTime::now() {
+                return Ok(snapshot.extensions);
             }
         }
 
@@ -71,12 +73,23 @@ impl SourceFetcher {
             }
         }
 
+        let etag = response
+            .headers()
+            .get(ETAG)
+            .and_then(|value| value.to_str().ok())
+            .map(|s| s.to_string());
+
         let body = response
             .text()
             .await
             .map_err(|err| MarketplaceError::Network(format!("read body failed: {err}")))?;
-        // TODO: parse repository listing format into manifest URLs
-        let manifest_urls: Vec<String> = vec![];
+
+        let manifest_urls = CatalogBody::parse(&body).map_err(|err| {
+            MarketplaceError::Configuration(format!(
+                "Invalid catalog for {}: {err}",
+                source.slug
+            ))
+        })?;
         let mut extensions = Vec::new();
         for manifest_url in manifest_urls {
             let manifest_response =
@@ -110,27 +123,37 @@ impl SourceFetcher {
             let (manifest, validation) =
                 ExtensionManifest::from_str(&manifest_body, &manifest_url)?;
             if !validation.is_clean() {
-                return Err(MarketplaceError::InvalidManifest {
-                    repository: manifest_url,
-                    reason: format!(
-                        "warnings detected: {}",
-                        validation
-                            .warnings
-                            .iter()
-                            .map(|w| format!("{}: {}", w.field, w.message))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ),
-                });
+                for warning in &validation.warnings {
+                    eprintln!(
+                        "Manifest warning [{}]: {} ({})",
+                        source.slug, warning.field, warning.message
+                    );
+                }
             }
-            extensions.push(Self::to_extension(source, &manifest));
+            let checksum = format!("{:x}", Sha256::digest(manifest_body.as_bytes()));
+            extensions.push(Self::to_extension(source, &manifest, ttl, checksum));
         }
 
-        self.cache.save(&source.slug, &extensions, None, ttl)?;
+        self.cache.save(&source.slug, &extensions, etag, ttl)?;
         Ok(extensions)
     }
 
-    fn to_extension(source: &MarketplaceSource, manifest: &ExtensionManifest) -> Extension {
+    pub fn cached_extensions(&self, source_slug: &str) -> Result<Option<Vec<Extension>>> {
+        Ok(self
+            .cache
+            .load(source_slug)?
+            .map(|snapshot| snapshot.extensions))
+    }
+
+    fn to_extension(
+        source: &MarketplaceSource,
+        manifest: &ExtensionManifest,
+        ttl: Duration,
+        checksum: String,
+    ) -> Extension {
+        let expires_at = SystemTime::now()
+            .checked_add(ttl)
+            .unwrap_or_else(|| SystemTime::now());
         Extension {
             id: ExtensionId::new(&source.slug, &manifest.name),
             source_slug: source.slug.clone(),
@@ -150,10 +173,10 @@ impl SourceFetcher {
             tags: manifest.tags.clone(),
             compatibility: manifest.compatibility.clone(),
             install_status: InstallStatus::Unknown,
-            manifest_checksum: String::new(),
+            manifest_checksum: checksum,
             readme_excerpt: manifest.readme.clone(),
             last_synced_at: Some(SystemTime::now()),
-            cache_expires_at: None,
+            cache_expires_at: Some(expires_at),
         }
     }
 
@@ -186,5 +209,47 @@ impl SourceFetcher {
 
     fn check_rate_limited(response: &reqwest::Response) -> bool {
         response.status().as_u16() == 403
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum CatalogBody {
+    Array(Vec<String>),
+    Object { manifests: Vec<String> },
+}
+
+impl CatalogBody {
+    fn parse(body: &str) -> Result<Vec<String>> {
+        let parsed: CatalogBody = serde_json::from_str(body).map_err(|err| {
+            MarketplaceError::Configuration(format!("invalid catalog payload: {err}"))
+        })?;
+        Ok(match parsed {
+            CatalogBody::Array(urls) => urls,
+            CatalogBody::Object { manifests } => manifests,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_array_catalog() {
+        let urls = CatalogBody::parse("[\"a.json\", \"b.json\"]").unwrap();
+        assert_eq!(urls.len(), 2);
+    }
+
+    #[test]
+    fn parses_object_catalog() {
+        let urls = CatalogBody::parse("{\"manifests\":[\"a.json\"]}").unwrap();
+        assert_eq!(urls, vec!["a.json".to_string()]);
+    }
+
+    #[test]
+    fn invalid_payload_returns_error() {
+        let err = CatalogBody::parse("not json").unwrap_err();
+        assert!(err.to_string().contains("invalid catalog payload"));
     }
 }

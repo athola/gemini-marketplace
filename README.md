@@ -1,8 +1,10 @@
 # Gemini Marketplace Extension
 
-A Rust-based Gemini CLI extension that surfaces third-party extensions from multiple sources, with caching, search, and source management.
+This repo holds a Gemini CLI extension written in Rust that discovers third-party extensions from GitHub-based catalogs. This project is built in Rust because the Gemini CLI already ships with a Rust toolchain. Additionally, async HTTP + filesystem work both benefit from Rust’s safety guarantees.
 
-## Project Layout
+## Project Layout (Why it looks like this)
+
+The source tree mirrors how Gemini CLI extensions load crates: a single binary entrypoint under `src/bin/` plus feature modules under `src/marketplace/`. Tests are split so unit tests stay fast and integration tests can spin up wiremock servers.
 
 ```
 .
@@ -37,15 +39,11 @@ cargo build
 cargo run -- list --help
 ```
 
+## Testing Strategy
+
+The plan leans on `wiremock` for HTTP playback and `assert_cmd` for end-to-end CLI assertions. The `GEMINI_MARKETPLACE_HOME` environment override is added so tests can isolate cache directories without touching the actual Gemini config. Run `cargo test` once rustup can write temp files; the sandbox blocks it here.
+
 ## Toolchain
 
-- Rust 1.82.0
+- Rust 1.82.0 (matches upstream ICU/idna requirements)
 - `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test`
-
-## Publishing with GitHub CLI
-
-```
-gh auth login
-gh repo create <org-or-user>/gemini-marketplace --private --source . --remote origin
-git push -u origin main
-```

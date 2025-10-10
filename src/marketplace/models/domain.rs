@@ -73,6 +73,24 @@ pub struct MarketplaceSource {
     pub poll_interval_hours: Option<u64>,
 }
 
+impl MarketplaceSource {
+    pub fn default_curated(url: Url) -> Self {
+        Self {
+            slug: "athola".to_string(),
+            display_name: "Athola Default".to_string(),
+            url,
+            source_type: SourceType::GithubRepo,
+            default: true,
+            enabled: true,
+            requires_auth: false,
+            last_synced_at: None,
+            last_sync_status: SyncStatus::Idle,
+            etag: None,
+            poll_interval_hours: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SourceType {
     GithubRepo,
