@@ -1,10 +1,10 @@
 # Gemini Marketplace Extension
 
-This repo holds a Gemini CLI extension written in Rust that discovers third-party extensions from GitHub-based catalogs. This project is built in Rust because the Gemini CLI already ships with a Rust toolchain. Additionally, async HTTP + filesystem work both benefit from Rust’s safety guarantees.
+This repo holds a Gemini CLI extension written in Rust that discovers third-party extensions from GitHub-based catalogs. Gemini ships with a Rust toolchain, so extensions can be built in Rust. Additionally, async HTTP + filesystem work both benefit from the Rust language's safety guarantees.
 
-## Project Layout (Why it looks like this)
+## Layout
 
-The source tree mirrors how Gemini CLI extensions load crates: a single binary entrypoint under `src/bin/` plus feature modules under `src/marketplace/`. Tests are split so unit tests stay fast and integration tests can spin up lightweight axum servers instead of hitting GitHub.
+The source tree mirrors how Gemini CLI extensions load crates: a single binary entrypoint under `src/bin/` plus feature modules under `src/marketplace/`. Tests are split into unit and integration tests.
 
 ```
 .
@@ -26,22 +26,26 @@ The source tree mirrors how Gemini CLI extensions load crates: a single binary e
 └── specs/001-build-a-gemini/      # Specification, plan, research, tasks
 ```
 
-## Building
+## Build
 
 ```bash
 rustup override set 1.82.0
 cargo build
 ```
 
-## Run CLI Skeleton
+## Run CLI
 
 ```bash
 cargo run -- list --help
 ```
 
-## Testing Strategy
+## Test
 
-The plan leans on axum-backed harnesses for HTTP playback and `assert_cmd` for end-to-end CLI assertions. The `GEMINI_MARKETPLACE_HOME` environment override isolates test cache directories and does not rely upon modifying the Gemini config. Run `cargo test` once rustup can write temp files; the sandbox blocks it here.
+The testplan leans on axum-backed harnesses for HTTP playback and `assert_cmd` for end-to-end CLI assertions. The `GEMINI_MARKETPLACE_HOME` environment override isolates test cache directories and does not rely upon modifying the Gemini config.
+
+```bash
+cargo test
+```
 
 ## Toolchain
 
