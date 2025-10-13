@@ -1,82 +1,57 @@
-# Quickstart — Gemini CLI Marketplace Extension
+# Quickstart — Gemini Marketplace Extension
 
 ## Prerequisites
-- Rust toolchain `1.82.0` installed via `rustup` (`rustup default 1.82.0`)
-- Gemini CLI installed and configured (ensure `gemini --version` succeeds)
-- Access to Git credential helper or environment tokens for private sources
-- GitHub personal access token (PAT) stored in your credential helper for higher rate limits (optional but recommended)
+- Rust 1.82.0 toolchain (`rustup show active-toolchain` should report 1.82).
+- Gemini CLI installed and configured with `$GEMINI_CONFIG` directory writable.
+- Network access to GitHub (optional when browsing cached data).
 
-## Project Setup
-1. Clone the repository and checkout the feature branch:
-   ```bash
-   git checkout 001-build-a-gemini
-   ```
-2. Verify toolchain and install components:
-   ```bash
-   rustup override set 1.82.0
-   rustup component add clippy rustfmt
-   cargo fetch
-   ```
-3. Configure the Gemini CLI extension path (once):
-   ```bash
-   gemini extensions path add ./target/debug/gemini-marketplace
-   ```
-
-## Building
+## Build & Test
 ```bash
-cargo build
+cargo fmt
+cargo clippy --all-targets -- -D warnings
+cargo test --all-targets
 ```
-- Debug binary output: `target/debug/gemini-marketplace`
-- Release build for distribution:
-  ```bash
-  cargo build --release
-  ```
 
-## Running the Extension
-- List marketplace extensions:
-  ```bash
-  gemini marketplace list --search "<keyword>"
-  ```
-- View details:
-  ```bash
-  gemini marketplace show source-slug/extension-slug
-  ```
-- Manage sources:
-  ```bash
-  gemini marketplace sources add https://github.com/example/extensions
-  gemini marketplace sources ls
-  gemini marketplace sources rm example
-  ```
+## Configure Sources
+```bash
+# Add curated default (enabled by default)
+gemini marketplace sources list
 
-## Testing
-1. Run fast unit tests:
-   ```bash
-   cargo test
-   ```
-2. Execute integration suite (uses axum-based test servers to simulate GitHub):
-   ```bash
-   cargo test --test integration
-   ```
-3. Lint + fmt:
-   ```bash
-   cargo fmt --check
-   cargo clippy --all-targets -- -D warnings
-   ```
+# Add an additional source
+gemini marketplace sources add https://github.com/example/team-marketplace
 
-## Debugging Rate Limits
-- Check status:
-  ```bash
-  gemini marketplace status
-  ```
-- Force refresh after countdown completes:
-  ```bash
-  gemini marketplace refresh --force
-  ```
+# Remove a source
+gemini marketplace sources remove team-marketplace
+```
 
-## Windows Notes
-- Run commands from PowerShell; ensure `~\AppData\Local\gemini\config` is writable.
-- Confirm Git credential manager is installed (`git credential-manager-core`).
+## Browse Extensions
+```bash
+# Paginated listing (table output)
+gemini marketplace list
 
-## Next Steps
-- Review `research.md` and `data-model.md` for architectural context.
-- Align implementation tasks via `/speckit.tasks` once Phase 2 is initiated.
+# Opt-in interactive pagination loop
+gemini marketplace list --interactive
+
+# Keyword search with category filter
+gemini marketplace search observability --category analytics
+
+# Show extension details (namespaced id)
+gemini marketplace show curated/awesome-extension
+```
+
+## Cache Management
+```bash
+# Force refresh all sources (honors rate-limit queues)
+gemini marketplace cache refresh --force
+
+# Adjust TTL to 12 hours
+gemini marketplace cache ttl set 12
+
+# JSON output for scripting
+gemini marketplace list --json
+```
+
+## Observability Tips
+- Enable structured logging by setting `GEMINI_MARKETPLACE_LOG=json`.
+- Inspect metrics counters (cache hits, rate-limit waits) via `gemini marketplace list --json`.
+- When rate limited, the CLI displays a countdown sourced from the internal rate-limit window.

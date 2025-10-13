@@ -29,6 +29,14 @@
 - Q: When fetching marketplace data fails (network errors, timeouts, invalid responses), what retry strategy should the system employ? → A: Background retry - Queue for background retry while serving cached data
 - Q: When recursively scanning marketplace source repositories for extension manifests (FR-013a), what maximum recursion depth should the system enforce to balance between discovering deeply nested extensions and preventing excessive traversal? → A: set default to 5 levels deep but allow it to be configurable
 
+### Session 2025-10-12
+
+- Q: Should `gemini marketplace list` keep users in an interactive pagination prompt by default or require an explicit flag? → A: Default to stateless execution with an optional `--interactive` flag for next/prev prompts
+
+### Session 2025-10-12
+
+- Q: Which command structure should the marketplace extension expose for listing extensions, viewing details, managing sources, refreshing data, and adjusting cache TTL? → A: Top-level `gemini marketplace` command with subcommands: `list`, `show <id>`, `search`, `sources add/list/remove`, `cache refresh`, `cache ttl set <hours>`
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Browse Available Extensions (Priority: P1)
@@ -41,10 +49,10 @@ As a Gemini CLI user, I want to discover what extensions are available so that I
 
 **Acceptance Scenarios**:
 
-1. **Given** I am using Gemini CLI, **When** I execute a marketplace command to list extensions, **Then** I see a paginated list of available extensions with their names, descriptions, and source repositories
+1. **Given** I am using Gemini CLI, **When** I run `gemini marketplace list`, **Then** I see a paginated list of available extensions with their names, descriptions, and source repositories
 2. **Given** the extension list is displayed, **When** I view the list, **Then** I can see key metadata for each extension including version information and installation status
 3. **Given** there are multiple extensions available, **When** I browse the list, **Then** extensions are organized in a readable format with clear categorization
-4. **Given** the extension list contains more items than fit on one page, **When** I use navigation commands (next/prev), **Then** I can navigate forward and backward through pages of results
+4. **Given** the extension list contains more items than fit on one page, **When** I launch `gemini marketplace list --interactive` and use navigation commands (next/prev), **Then** I can navigate forward and backward through pages of results without re-invoking the command
 5. **Given** a marketplace source contains thousands of extensions, **When** I browse the list, **Then** the system lazily loads extensions in 500-extension increments, providing responsive performance without fetching the entire catalog upfront
 
 ---
@@ -59,7 +67,7 @@ As a Gemini CLI user, I want to view detailed information about a specific exten
 
 **Acceptance Scenarios**:
 
-1. **Given** I am viewing the extension list, **When** I select a specific extension, **Then** I see comprehensive details including description, author, repository URL, version, and compatibility information
+1. **Given** I am viewing the extension list, **When** I run `gemini marketplace show <source-name/extension-name>`, **Then** I see comprehensive details including description, author, repository URL, version, and compatibility information
 2. **Given** I am viewing extension details, **When** the extension has documentation or README content, **Then** I can access that documentation directly
 3. **Given** I am viewing extension details, **When** I want to install the extension, **Then** I can see clear installation instructions with the exact GitHub URL to use
 4. **Given** I am viewing extension details, **When** the system performs full semantic validation, **Then** any manifest validation errors (invalid semver, malformed URLs, type mismatches) are displayed clearly to inform installation decisions
@@ -76,9 +84,9 @@ As a Gemini CLI user, I want to search for extensions by keyword or filter by ca
 
 **Acceptance Scenarios**:
 
-1. **Given** I am viewing the marketplace, **When** I enter a search term, **Then** the extension list filters to show only extensions matching that term in their name or description
-2. **Given** extensions have categories or tags, **When** I apply a category filter, **Then** only extensions in that category are displayed
-3. **Given** I have applied filters, **When** I clear the filters, **Then** the full extension list is displayed again
+1. **Given** I am viewing the marketplace, **When** I run `gemini marketplace search <keyword>`, **Then** the extension list filters to show only extensions matching that term in their name or description
+2. **Given** extensions have categories or tags, **When** I run `gemini marketplace search --category <tag>`, **Then** only extensions in that category are displayed
+3. **Given** I have applied filters, **When** I run `gemini marketplace list` without search parameters, **Then** the full extension list is displayed again
 
 ---
 
@@ -92,9 +100,9 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 
 **Acceptance Scenarios**:
 
-1. **Given** I want to add a custom marketplace source, **When** I provide a valid GitHub repository or URL, **Then** that source is added to my marketplace configuration
+1. **Given** I want to add a custom marketplace source, **When** I run `gemini marketplace sources add <url>`, **Then** that source is added to my marketplace configuration
 2. **Given** I have multiple marketplace sources configured, **When** I browse extensions, **Then** I can see which source each extension comes from
-3. **Given** I have added custom sources, **When** I want to remove a source, **Then** I can remove it and extensions from that source no longer appear
+3. **Given** I have added custom sources, **When** I run `gemini marketplace sources remove <source-name>`, **Then** that source is removed and extensions from that source no longer appear
 4. **Given** I add a marketplace source structured as a monorepo with multiple extensions, **When** the system scans the repository, **Then** it recursively discovers all `gemini-extension.json` manifests in subdirectories (up to the recursion limit) and treats each as an independent extension
 
 ---
@@ -117,6 +125,7 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 
 - **FR-001**: System MUST retrieve and display a curated list of available Gemini CLI extensions from configured marketplace sources
 - **FR-001a**: System MUST present extension lists using paginated output with navigation commands (next/prev) to allow users to browse results page by page
+- **FR-001b**: `gemini marketplace list` MUST execute as a single-shot command by default; an explicit `--interactive` flag enables an interactive prompt that accepts `next` / `prev` / `quit` navigation without re-running the command
 - **FR-002**: System MUST display extension metadata including name, description, repository URL, version, and author information
 - **FR-002a**: System MUST namespace extension identifiers as "source-name/extension-name" to handle extensions with identical names from different marketplace sources
 - **FR-003**: System MUST allow users to view detailed information for any listed extension
@@ -142,6 +151,7 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 - **FR-013e**: System MUST allow users to configure the maximum recursion depth for monorepo directory scanning to balance between extension discovery coverage and performance requirements
 - **FR-014**: System MUST distinguish between installed and not-installed extensions in the display by checking Gemini CLI's extension registry first, then falling back to file system scans of known extension directories if registry is unavailable
 - **FR-015**: System MUST support filtering extensions by category or tags when provided in extension metadata
+- **FR-016**: System MUST expose a top-level `gemini marketplace` command with subcommands `list`, `show <id>`, `search`, `sources add`, `sources list`, `sources remove`, `cache refresh`, and `cache ttl set <hours>` to provide browsing, management, and cache controls through a consistent CLI surface
 
 ### Non-Functional Requirements
 

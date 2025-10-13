@@ -13,7 +13,7 @@ use crate::marketplace::cache::store::CacheStore;
 use crate::marketplace::config::Config;
 use crate::marketplace::error::{MarketplaceError, Result};
 use crate::marketplace::models::domain::{
-    Extension, ExtensionId, InstallStatus, MarketplaceSource, RateLimitWindow,
+    Extension, ExtensionId, InstallStatus, MarketplaceSource, RateLimitWindow, ValidationSummary,
 };
 use crate::marketplace::models::manifest::ExtensionManifest;
 use crate::marketplace::services::preferences::PreferencesService;
@@ -172,6 +172,8 @@ impl SourceFetcher {
             readme_excerpt: manifest.readme.clone(),
             last_synced_at: Some(SystemTime::now()),
             cache_expires_at: Some(expires_at),
+            validation_summary: ValidationSummary::new_pending(SystemTime::now()),
+            manifest_path: Some(".".to_string()),
         }
     }
 
