@@ -4,6 +4,7 @@
 //! `specs/001-build-a-gemini/data-model.md` while preserving the legacy field
 //! names already used throughout the services layer.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::time::{Duration, SystemTime};
@@ -27,20 +28,20 @@ pub struct Extension {
     pub id: ExtensionId,
     pub source_slug: String,
     pub extension_slug: String,
-    pub display_name: String,
-    pub summary: String,
+    pub display_name: Cow<'static, str>,
+    pub summary: Cow<'static, str>,
     pub repository_url: Url,
     pub homepage_url: Option<Url>,
     pub documentation_url: Option<Url>,
     pub version: Version,
-    pub author: String,
-    pub license: Option<String>,
+    pub author: Cow<'static, str>,
+    pub license: Option<Cow<'static, str>>,
     pub categories: Vec<String>,
     pub tags: Vec<String>,
     pub compatibility: Vec<String>,
     pub install_status: InstallStatus,
     pub manifest_checksum: String,
-    pub readme_excerpt: Option<String>,
+    pub readme_excerpt: Option<Cow<'static, str>>,
     #[serde(with = "humantime_serde::option")]
     pub last_synced_at: Option<SystemTime>,
     #[serde(with = "humantime_serde::option")]
@@ -79,22 +80,22 @@ impl Extension {
         let extension_slug = id.0.split('/').nth(1).unwrap_or_default().to_string();
         Self {
             id,
-            source_slug: source_slug_str.clone(),
+            source_slug: source_slug_str,
             extension_slug,
-            display_name: display_name.into(),
-            summary: summary.into(),
+            display_name: Cow::Owned(display_name.into()),
+            summary: Cow::Owned(summary.into()),
             repository_url,
             homepage_url: None,
             documentation_url: None,
             version,
-            author: author.into(),
+            author: Cow::Owned(author.into()),
             license: None,
             categories: dedup_case_insensitive(categories),
             tags: Vec::new(),
             compatibility: dedup_case_insensitive(compatibility),
             install_status,
             manifest_checksum: String::new(),
-            readme_excerpt,
+            readme_excerpt: readme_excerpt.map(Cow::Owned),
             last_synced_at: last_seen,
             cache_expires_at: None,
             validation_summary,

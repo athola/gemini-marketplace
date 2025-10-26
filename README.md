@@ -1,53 +1,71 @@
-# Gemini Marketplace Extension
+# Gemini Marketplace
 
-This repo holds a Gemini CLI extension written in Rust that discovers third-party extensions from GitHub-based catalogs. Gemini ships with a Rust toolchain, so extensions can be built in Rust. Additionally, async HTTP + filesystem work both benefit from the Rust language's safety guarantees.
+A CLI extension for discovering and managing Gemini extensions.
 
-## Layout
+Gemini Marketplace is a command-line tool that makes it easy to find, install, and manage extensions for the Gemini CLI. It provides a centralized place to discover new functionality and customize your Gemini experience.
 
-The source tree mirrors how Gemini CLI extensions load crates: a single binary entrypoint under `src/bin/` plus feature modules under `src/marketplace/`. Tests are split into unit and integration tests.
+[![CI](https://github.com/gemini-rs/marketplace/actions/workflows/ci.yml/badge.svg)](https://github.com/gemini-rs/marketplace/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/gemini-marketplace.svg)](https://crates.io/crates/gemini-marketplace)
+[![docs.rs](https://docs.rs/gemini-marketplace/badge.svg)](https://docs.rs/gemini-marketplace)
 
-```
-.
-├── Cargo.toml
-├── src/
-│   ├── bin/marketplace.rs         # Clap-powered CLI entrypoint
-│   └── marketplace/
-│       ├── api/                   # Axum HTTP surfaces (placeholders)
-│       ├── cache/                 # JSON cache store
-│       ├── commands/              # CLI command handlers (stubs)
-│       ├── config.rs              # Platform path helpers
-│       ├── error.rs               # Shared error enum
-│       ├── models/                # Domain + manifest types
-│       └── services/              # Fetcher, preferences, etc.
-├── tests/
-│   ├── integration/               # Integration harness (WIP)
-│   ├── unit/                      # Unit tests
-│   └── common/                    # Shared fixtures
-└── specs/001-build-a-gemini/      # Specification, plan, research, tasks
-```
+## Features
 
-## Build
+*   **Discover:** Find new extensions in the official Gemini Marketplace catalog.
+*   **Search:** Search for extensions by name, keyword, or author.
+*   **Install:** Install extensions from the marketplace with a single command.
+*   **Manage:** View and manage your installed extensions.
+*   **Extensible:** Add your own custom extension sources.
+
+## Getting Started
+
+### Installation
+
+To install the Gemini Marketplace extension, you'll need to have the Gemini CLI installed. Then, you can install the marketplace extension from the official Gemini Marketplace catalog:
 
 ```bash
-rustup override set 1.82.0
+gemini marketplace install marketplace
+```
+
+### Build from Source
+
+Alternatively, you can build the marketplace extension from source:
+
+```bash
+git clone https://github.com/gemini-rs/marketplace.git
+cd marketplace
 cargo build
 ```
 
-## Run CLI
+## Usage
+
+Once installed, you can use the `marketplace` command to manage your extensions.
 
 ```bash
-cargo run -- list --help
+gemini marketplace --help
 ```
 
-## Test
-
-The testplan leans on axum-backed harnesses for HTTP playback and `assert_cmd` for end-to-end CLI assertions. The `GEMINI_MARKETPLACE_HOME` environment override isolates test cache directories and does not rely upon modifying the Gemini config.
+To list all available extensions:
 
 ```bash
-cargo test
+gemini marketplace list
 ```
 
-## Toolchain
+To search for an extension:
 
-- Rust 1.82.0 (matches upstream ICU/idna requirements)
-- `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test`
+```bash
+gemini marketplace search <query>
+```
+
+To install an extension:
+
+```bash
+gemini marketplace install <name>
+```
+
+## Contributing
+
+We welcome contributions to the Gemini Marketplace! If you'd like to contribute, please read our [contributing guidelines](https://github.com/gemini-rs/marketplace/blob/main/CONTRIBUTING.md).
+
+## License
+
+This project is licensed under the [MIT License](https://github.com/gemini-rs/marketplace/blob/main/LICENSE).

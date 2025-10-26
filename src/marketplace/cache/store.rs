@@ -4,9 +4,11 @@
 //! browsing. Each cache file stores normalized extensions, expiration, and an
 //! optional etag for conditional requests.
 
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
 use serde::{Deserialize, Serialize};
@@ -20,12 +22,16 @@ use crate::marketplace::models::domain::{CacheEntry, Extension};
 #[derive(Debug)]
 pub struct CacheStore {
     root: PathBuf,
+    locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
 }
 
 impl CacheStore {
     /// Construct a cache store rooted at the provided directory (testing helper).
-    pub fn for_root(root: PathBuf) -> Self {
-        Self { root }
+    pub fn for_root(root: impl Into<PathBuf>) -> Self {
+        Self {
+            root: root.into(),
+            locks: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 }
 
@@ -47,9 +53,12 @@ pub struct CacheSnapshot {
 
 impl CacheStore {
     pub fn new(config: &Config) -> Result<Self> {
-        let root = config.cache_dir();
-        fs::create_dir_all(&root).map_err(|err| MarketplaceError::io(root.clone(), err))?;
-        Ok(Self { root })
+        let root = config.cache_dir().to_path_buf();
+        fs::create_dir_all(&root).map_err(|err| MarketplaceError::io(root.to_path_buf(), err))?;
+        Ok(Self {
+            root,
+            locks: Arc::new(Mutex::new(HashMap::new())),
+        })
     }
 
     pub fn cache_path(&self, source_slug: &str) -> PathBuf {
@@ -69,107 +78,121 @@ impl CacheStore {
         etag: Option<String>,
         ttl: Duration,
     ) -> Result<()> {
-        let path = self.batch_path(source_slug, batch_index);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|err| MarketplaceError::io(parent.to_path_buf(), err))?;
-        }
-
-        let fetched_at = SystemTime::now();
-        let expires_at = fetched_at
-            .checked_add(ttl)
-            .ok_or_else(|| MarketplaceError::Configuration("Cache TTL overflow".into()))?;
-
-        let mut payload = extensions.to_vec();
-        for extension in &mut payload {
-            extension.cache_expires_at = Some(expires_at);
-            extension.last_synced_at = Some(fetched_at);
-        }
-
-        let _ = ensure_manifest_checksums(&mut payload, source_slug)?;
-
-        let cache_file = CacheFile {
-            fetched_at,
-            expires_at,
-            etag,
-            extensions: payload,
-        };
-
-        let file = File::create(&path).map_err(|err| MarketplaceError::io(path.clone(), err))?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, &cache_file).map_err(|err| {
-            MarketplaceError::InvalidManifest {
-                repository: format!("{source_slug}/batch-{batch_index:03}.json"),
-                reason: format!("unable to serialize cache: {err}"),
+        self.with_slug_guard(source_slug, || {
+            let path = self.batch_path(source_slug, batch_index);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|err| MarketplaceError::io(parent.to_path_buf(), err))?;
             }
+
+            let fetched_at = SystemTime::now();
+            let expires_at = fetched_at.checked_add(ttl).ok_or_else(|| {
+                MarketplaceError::Configuration(format!(
+                    "Cache TTL overflow for source '{}': TTL duration too large",
+                    source_slug
+                ))
+            })?;
+
+            let mut payload = extensions.to_vec();
+            for extension in &mut payload {
+                extension.cache_expires_at = Some(expires_at);
+                extension.last_synced_at = Some(fetched_at);
+            }
+
+            let _ = ensure_manifest_checksums(&mut payload, source_slug)?;
+
+            let cache_file = CacheFile {
+                fetched_at,
+                expires_at,
+                etag,
+                extensions: payload,
+            };
+
+            let file =
+                File::create(&path).map_err(|err| MarketplaceError::io(path.to_path_buf(), err))?;
+            let writer = BufWriter::new(file);
+            serde_json::to_writer_pretty(writer, &cache_file).map_err(|err| {
+                MarketplaceError::InvalidManifest {
+                    repository: format!("{source_slug}/batch-{batch_index:03}.json"),
+                    reason: format!("unable to serialize cache: {err}"),
+                }
+            })
         })
     }
 
     pub fn load_batch(&self, source_slug: &str, batch_index: u32) -> Result<Option<CacheSnapshot>> {
-        let path = self.batch_path(source_slug, batch_index);
-        if !path.exists() {
-            return Ok(None);
-        }
+        self.with_slug_guard(source_slug, || {
+            let path = self.batch_path(source_slug, batch_index);
+            if !path.exists() {
+                return Ok(None);
+            }
 
-        let file = File::open(&path).map_err(|err| MarketplaceError::io(path.clone(), err))?;
-        let reader = BufReader::new(file);
-        let cache_file: CacheFile =
-            serde_json::from_reader(reader).map_err(|err| MarketplaceError::InvalidManifest {
-                repository: format!("{source_slug}/batch-{batch_index:03}.json"),
-                reason: format!("invalid cache file JSON: {err}"),
+            let file =
+                File::open(&path).map_err(|err| MarketplaceError::io(path.to_path_buf(), err))?;
+            let reader = BufReader::new(file);
+            let cache_file: CacheFile = serde_json::from_reader(reader).map_err(|err| {
+                MarketplaceError::InvalidManifest {
+                    repository: format!("{source_slug}/batch-{batch_index:03}.json"),
+                    reason: format!("invalid cache file JSON: {err}"),
+                }
             })?;
 
-        let mut extensions = cache_file.extensions;
-        let checksums = ensure_manifest_checksums(&mut extensions, source_slug)?;
+            let mut extensions = cache_file.extensions;
+            let checksums = ensure_manifest_checksums(&mut extensions, source_slug)?;
 
-        let entry = CacheEntry {
-            source_slug: source_slug.to_string(),
-            batch_index,
-            manifest_checksum: checksums.join(";"),
-            payload_path: path.to_string_lossy().into_owned(),
-            fetched_at: cache_file.fetched_at,
-            expires_at: cache_file.expires_at,
-            extension_ids: extensions.iter().map(|ext| ext.id.clone()).collect(),
-            etag: cache_file.etag.clone(),
-        };
+            let entry = CacheEntry {
+                source_slug: source_slug.to_string(),
+                batch_index,
+                manifest_checksum: checksums.join(";"),
+                payload_path: path.to_string_lossy().into_owned(),
+                fetched_at: cache_file.fetched_at,
+                expires_at: cache_file.expires_at,
+                extension_ids: extensions.iter().map(|ext| ext.id.clone()).collect(),
+                etag: cache_file.etag.clone(),
+            };
 
-        Ok(Some(CacheSnapshot { entry, extensions }))
+            Ok(Some(CacheSnapshot { entry, extensions }))
+        })
     }
 
     pub fn load(&self, source_slug: &str) -> Result<Option<CacheSnapshot>> {
-        let path = self.cache_path(source_slug);
-        if !path.exists() {
-            return Ok(None);
-        }
-        let file = File::open(&path).map_err(|err| MarketplaceError::io(path.clone(), err))?;
-        let reader = BufReader::new(file);
-        let cache_file: CacheFile =
-            serde_json::from_reader(reader).map_err(|err| MarketplaceError::InvalidManifest {
-                repository: source_slug.to_string(),
-                reason: format!("invalid cache file JSON: {err}"),
+        self.with_slug_guard(source_slug, || {
+            let path = self.cache_path(source_slug);
+            if !path.exists() {
+                return Ok(None);
+            }
+            let file =
+                File::open(&path).map_err(|err| MarketplaceError::io(path.to_path_buf(), err))?;
+            let reader = BufReader::new(file);
+            let cache_file: CacheFile = serde_json::from_reader(reader).map_err(|err| {
+                MarketplaceError::InvalidManifest {
+                    repository: source_slug.to_string(),
+                    reason: format!("invalid cache file JSON: {err}"),
+                }
             })?;
 
-        let extension_ids = cache_file
-            .extensions
-            .iter()
-            .map(|ext| ext.id.clone())
-            .collect();
+            let extension_ids = cache_file
+                .extensions
+                .iter()
+                .map(|ext| ext.id.clone())
+                .collect();
 
-        let mut extensions = cache_file.extensions;
-        let checksums = ensure_manifest_checksums(&mut extensions, source_slug)?;
+            let mut extensions = cache_file.extensions;
+            let checksums = ensure_manifest_checksums(&mut extensions, source_slug)?;
 
-        let entry = CacheEntry {
-            source_slug: source_slug.to_string(),
-            batch_index: 0,
-            manifest_checksum: checksums.join(";"),
-            payload_path: path.to_string_lossy().into_owned(),
-            fetched_at: cache_file.fetched_at,
-            expires_at: cache_file.expires_at,
-            extension_ids,
-            etag: cache_file.etag.clone(),
-        };
+            let entry = CacheEntry {
+                source_slug: source_slug.to_string(),
+                batch_index: 0,
+                manifest_checksum: checksums.join(";"),
+                payload_path: path.to_string_lossy().into_owned(),
+                fetched_at: cache_file.fetched_at,
+                expires_at: cache_file.expires_at,
+                extension_ids,
+                etag: cache_file.etag.clone(),
+            };
 
-        Ok(Some(CacheSnapshot { entry, extensions }))
+            Ok(Some(CacheSnapshot { entry, extensions }))
+        })
     }
 
     pub fn save(
@@ -179,48 +202,74 @@ impl CacheStore {
         etag: Option<String>,
         ttl: Duration,
     ) -> Result<()> {
-        let path = self.cache_path(source_slug);
-        let fetched_at = SystemTime::now();
-        let expires_at = fetched_at
-            .checked_add(ttl)
-            .ok_or_else(|| MarketplaceError::Configuration("Cache TTL overflow".into()))?;
+        self.with_slug_guard(source_slug, || {
+            let path = self.cache_path(source_slug);
+            let fetched_at = SystemTime::now();
+            let expires_at = fetched_at.checked_add(ttl).ok_or_else(|| {
+                MarketplaceError::Configuration(format!(
+                    "Cache TTL overflow for source '{}': TTL duration too large",
+                    source_slug
+                ))
+            })?;
 
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|err| MarketplaceError::io(parent.to_path_buf(), err))?;
-        }
-
-        let mut payload = extensions.to_vec();
-        for extension in &mut payload {
-            extension.cache_expires_at = Some(expires_at);
-            extension.last_synced_at = Some(fetched_at);
-        }
-
-        let _ = ensure_manifest_checksums(&mut payload, source_slug)?;
-
-        let cache_file = CacheFile {
-            fetched_at,
-            expires_at,
-            etag,
-            extensions: payload,
-        };
-
-        let file = File::create(&path).map_err(|err| MarketplaceError::io(path.clone(), err))?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, &cache_file).map_err(|err| {
-            MarketplaceError::InvalidManifest {
-                repository: source_slug.to_string(),
-                reason: format!("unable to serialize cache: {err}"),
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)
+                    .map_err(|err| MarketplaceError::io(parent.to_path_buf(), err))?;
             }
+
+            let mut payload = extensions.to_vec();
+            for extension in &mut payload {
+                extension.cache_expires_at = Some(expires_at);
+                extension.last_synced_at = Some(fetched_at);
+            }
+
+            let _ = ensure_manifest_checksums(&mut payload, source_slug)?;
+
+            let cache_file = CacheFile {
+                fetched_at,
+                expires_at,
+                etag,
+                extensions: payload,
+            };
+
+            let file =
+                File::create(&path).map_err(|err| MarketplaceError::io(path.to_path_buf(), err))?;
+            let writer = BufWriter::new(file);
+            serde_json::to_writer_pretty(writer, &cache_file).map_err(|err| {
+                MarketplaceError::InvalidManifest {
+                    repository: source_slug.to_string(),
+                    reason: format!("unable to serialize cache: {err}"),
+                }
+            })
         })
     }
 
     pub fn invalidate(&self, source_slug: &str) -> Result<()> {
-        let path = self.cache_path(source_slug);
-        if path.exists() {
-            fs::remove_file(&path).map_err(|err| MarketplaceError::io(path, err))?;
-        }
-        Ok(())
+        self.with_slug_guard(source_slug, || {
+            let path = self.cache_path(source_slug);
+            if path.exists() {
+                fs::remove_file(&path).map_err(|err| MarketplaceError::io(path, err))?;
+            }
+            Ok(())
+        })
+    }
+}
+
+impl CacheStore {
+    fn lock_for_slug(&self, slug: &str) -> Arc<Mutex<()>> {
+        let mut map = self.locks.lock().unwrap();
+        map.entry(slug.to_string())
+            .or_insert_with(|| Arc::new(Mutex::new(())))
+            .clone()
+    }
+
+    fn with_slug_guard<T, F>(&self, slug: &str, f: F) -> Result<T>
+    where
+        F: FnOnce() -> Result<T>,
+    {
+        let slug_lock = self.lock_for_slug(slug);
+        let _guard = slug_lock.lock().unwrap();
+        f()
     }
 }
 
@@ -228,13 +277,13 @@ fn ensure_manifest_checksums(extensions: &mut [Extension], context: &str) -> Res
     let mut checksums = Vec::with_capacity(extensions.len());
     for extension in extensions.iter_mut() {
         if extension.manifest_checksum.is_empty() {
-            let mut clone = extension.clone();
-            clone.manifest_checksum.clear();
-            let serialized =
-                serde_json::to_vec(&clone).map_err(|err| MarketplaceError::InvalidManifest {
+            // Serialize with empty checksum (since it's already empty)
+            let serialized = serde_json::to_vec(&extension).map_err(|err| {
+                MarketplaceError::InvalidManifest {
                     repository: context.to_string(),
                     reason: format!("unable to serialize extension for checksum: {err}"),
-                })?;
+                }
+            })?;
             let mut hasher = Sha256::new();
             hasher.update(serialized);
             extension.manifest_checksum = format!("{:x}", hasher.finalize());
@@ -314,7 +363,10 @@ mod tests {
             .ends_with("curated/batch-000.json"));
         assert_eq!(snapshot.extensions.len(), 1);
         let loaded = &snapshot.extensions[0];
-        assert_eq!(loaded.readme_excerpt, Some("README".into()));
+        assert_eq!(
+            loaded.readme_excerpt.as_ref().map(|cow| cow.as_ref()),
+            Some("README")
+        );
         assert_eq!(loaded.cache_expires_at, Some(snapshot.entry.expires_at));
         assert_eq!(loaded.last_synced_at, Some(snapshot.entry.fetched_at));
     }

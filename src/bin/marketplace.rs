@@ -9,6 +9,7 @@ use gemini_marketplace::marketplace::commands::cache::{
 use gemini_marketplace::marketplace::commands::list::{execute as execute_list, ListOptions};
 use gemini_marketplace::marketplace::commands::search::{execute as execute_search, SearchOptions};
 use gemini_marketplace::marketplace::commands::sources;
+use gemini_marketplace::marketplace::error::MarketplaceError;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -126,6 +127,7 @@ enum CacheTtlCommand {
 
 #[tokio::main]
 async fn main() -> ExitCode {
+    let _ = tracing_subscriber::fmt::try_init();
     let cli = MarketplaceCli::parse();
     let result = match cli.command {
         MarketplaceCommand::List {
@@ -193,8 +195,59 @@ async fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("Error: {err}");
+            match err.downcast::<MarketplaceError>() {
+                Ok(market_err) => report_marketplace_error(market_err),
+                Err(other) => eprintln!("Error: {other}"),
+            }
             ExitCode::FAILURE
         }
+    }
+}
+
+fn report_marketplace_error(error: MarketplaceError) {
+    match error {
+        MarketplaceError::RateLimited { source_slug, reset_at } => {
+            match reset_at {
+                Some(ts) => eprintln!(
+                    "Rate limit exceeded for source '{source_slug}'. Try again after {ts}, or rerun with cached data if available."
+                ),
+                None => eprintln!(
+                    "Rate limit exceeded for source '{source_slug}'. Try again in a few minutes."
+                ),
+            }
+        }
+        MarketplaceError::Network {
+            operation,
+            source,
+            url,
+        } => {
+            let message = source.to_string();
+            if let Some(url) = url {
+                eprintln!(
+                    "Network error during {operation} while contacting {url}: {message}"
+                );
+            } else {
+                eprintln!("Network error during {operation}: {message}");
+            }
+        }
+        MarketplaceError::SourceNotFound { slug } => {
+            eprintln!(
+                "Source '{slug}' not found. Run `gemini-marketplace sources list` to review configured sources."
+            );
+        }
+        MarketplaceError::AuthenticationRequired { slug } => {
+            eprintln!(
+                "Source '{slug}' requires authentication. Add credentials via `gemini-marketplace sources add --requires-auth` or update your config."
+            );
+        }
+        MarketplaceError::ExtensionNotFound { id } => {
+            eprintln!(
+                "Extension '{id}' not found. Check the identifier or refresh with `gemini-marketplace cache refresh`."
+            );
+        }
+        MarketplaceError::Configuration(message) => {
+            eprintln!("Configuration error: {message}");
+        }
+        other => eprintln!("Error: {other}"),
     }
 }

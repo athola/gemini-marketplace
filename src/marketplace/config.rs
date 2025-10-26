@@ -49,18 +49,18 @@ impl Config {
     }
 
     /// Directory containing cache files (per-source JSON payloads, TTL metadata).
-    pub fn cache_dir(&self) -> PathBuf {
-        self.cache_dir.clone()
+    pub fn cache_dir(&self) -> &PathBuf {
+        &self.cache_dir
     }
 
     /// Directory containing configuration files (user preferences, sources list).
-    pub fn config_dir(&self) -> PathBuf {
-        self.config_dir.clone()
+    pub fn config_dir(&self) -> &PathBuf {
+        &self.config_dir
     }
 
     /// Directory for logs or diagnostics produced by the extension.
-    pub fn log_dir(&self) -> PathBuf {
-        self.log_dir.clone()
+    pub fn log_dir(&self) -> &PathBuf {
+        &self.log_dir
     }
 
     /// User downloads directory, used as fallback when exporting manifests or reports.
@@ -71,11 +71,11 @@ impl Config {
     /// Ensure required directories exist, creating them as needed.
     pub fn ensure_dirs(&self) -> Result<()> {
         std::fs::create_dir_all(&self.cache_dir)
-            .map_err(|err| MarketplaceError::io(self.cache_dir.clone(), err))?;
+            .map_err(|err| MarketplaceError::io(self.cache_dir.to_path_buf(), err))?;
         std::fs::create_dir_all(&self.config_dir)
-            .map_err(|err| MarketplaceError::io(self.config_dir.clone(), err))?;
+            .map_err(|err| MarketplaceError::io(self.config_dir.to_path_buf(), err))?;
         std::fs::create_dir_all(&self.log_dir)
-            .map_err(|err| MarketplaceError::io(self.log_dir.clone(), err))?;
+            .map_err(|err| MarketplaceError::io(self.log_dir.to_path_buf(), err))?;
         Ok(())
     }
 }

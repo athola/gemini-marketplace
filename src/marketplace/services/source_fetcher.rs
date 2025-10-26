@@ -1,6 +1,7 @@
 //! Marketplace source fetcher responsible for retrieving manifests, respecting
 //! caching, and handling GitHub rate limits.
 
+use std::borrow::Cow;
 use std::time::{Duration, SystemTime};
 
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ETAG, USER_AGENT};
@@ -18,6 +19,8 @@ use crate::marketplace::models::domain::{
 use crate::marketplace::models::manifest::ExtensionManifest;
 use crate::marketplace::services::preferences::PreferencesService;
 
+/// Fetches manifests from marketplace sources, respecting cache TTL and GitHub
+/// rate limits.
 pub struct SourceFetcher {
     client: Client,
     cache: CacheStore,
@@ -29,7 +32,7 @@ impl SourceFetcher {
         let client = Client::builder()
             .user_agent("gemini-marketplace-extension/0.1.0")
             .build()
-            .map_err(|err| MarketplaceError::Network(format!("client build failed: {err}")))?;
+            .map_err(|err| MarketplaceError::network("client_build", err, None))?;
         let cache = CacheStore::new(config)?;
         Ok(Self {
             client,
@@ -55,11 +58,13 @@ impl SourceFetcher {
 
         let response = self
             .client
-            .get(source.url.clone())
+            .get(source.url.as_str())
             .headers(headers)
             .send()
             .await
-            .map_err(|err| MarketplaceError::Network(format!("fetch failed: {err}")))?;
+            .map_err(|err| {
+                MarketplaceError::network("catalog_fetch", err, Some(source.url.to_string()))
+            })?;
 
         if response.status().as_u16() == 403 {
             if let Some(window) = Self::extract_rate_limit(&source.slug, &response) {
@@ -78,32 +83,31 @@ impl SourceFetcher {
             .and_then(|value| value.to_str().ok())
             .map(|s| s.to_string());
 
-        let body = response
-            .text()
-            .await
-            .map_err(|err| MarketplaceError::Network(format!("read body failed: {err}")))?;
+        let body = response.text().await.map_err(|err| {
+            MarketplaceError::network("catalog_read_body", err, Some(source.url.to_string()))
+        })?;
 
         let manifest_urls = CatalogBody::parse(&body).map_err(|err| {
             MarketplaceError::Configuration(format!("Invalid catalog for {}: {err}", source.slug))
         })?;
         let mut extensions = Vec::new();
         for manifest_url in manifest_urls {
-            let manifest_response =
-                self.client
-                    .get(manifest_url.clone())
-                    .send()
-                    .await
-                    .map_err(|err| {
-                        MarketplaceError::Network(format!("manifest fetch failed: {err}"))
-                    })?;
+            let manifest_url_owned = manifest_url.clone();
+            let manifest_response = self
+                .client
+                .get(manifest_url.as_str())
+                .send()
+                .await
+                .map_err(|err| {
+                    MarketplaceError::network(
+                        "manifest_fetch",
+                        err,
+                        Some(manifest_url_owned.clone()),
+                    )
+                })?;
             if Self::check_rate_limited(&manifest_response) {
                 let window = Self::extract_rate_limit(&source.slug, &manifest_response)
-                    .unwrap_or_else(|| RateLimitWindow {
-                        source_slug: source.slug.clone(),
-                        reset_at: None,
-                        remaining_requests: Some(0),
-                        limit: None,
-                    });
+                    .unwrap_or_else(|| RateLimitWindow::new(source.slug.as_str(), None, Some(0)));
                 sleep(Duration::from_secs(5)).await;
                 return Err(MarketplaceError::RateLimited {
                     source_slug: source.slug.clone(),
@@ -113,20 +117,30 @@ impl SourceFetcher {
                 });
             }
             let manifest_body = manifest_response.text().await.map_err(|err| {
-                MarketplaceError::Network(format!("manifest body read failed: {err}"))
+                MarketplaceError::network(
+                    "manifest_read_body",
+                    err,
+                    Some(manifest_url_owned.clone()),
+                )
             })?;
             let (manifest, validation) =
-                ExtensionManifest::from_str(&manifest_body, &manifest_url)?;
+                ExtensionManifest::from_str(&manifest_body, &manifest_url_owned)?;
             if !validation.is_clean() {
                 for warning in &validation.warnings {
-                    eprintln!(
+                    tracing::warn!(
+                        target: "marketplace::manifest",
+                        source = %source.slug,
+                        field = %warning.field,
+                        message = %warning.message,
                         "Manifest warning [{}]: {} ({})",
-                        source.slug, warning.field, warning.message
+                        source.slug,
+                        warning.field,
+                        warning.message
                     );
                 }
             }
             let checksum = format!("{:x}", Sha256::digest(manifest_body.as_bytes()));
-            extensions.push(Self::to_extension(source, &manifest, ttl, checksum));
+            extensions.push(Self::to_extension(source, &manifest, ttl, checksum)?);
         }
 
         self.cache.save(&source.slug, &extensions, etag, ttl)?;
@@ -145,36 +159,49 @@ impl SourceFetcher {
         manifest: &ExtensionManifest,
         ttl: Duration,
         checksum: String,
-    ) -> Extension {
-        let expires_at = SystemTime::now()
-            .checked_add(ttl)
-            .unwrap_or_else(SystemTime::now);
-        Extension {
+    ) -> Result<Extension> {
+        let now = SystemTime::now();
+        let expires_at = now.checked_add(ttl).ok_or_else(|| {
+            MarketplaceError::Configuration(format!(
+                "Cache TTL overflow for source '{}': TTL duration too large",
+                source.slug
+            ))
+        })?;
+        Ok(Extension {
             id: ExtensionId::new(&source.slug, &manifest.name),
             source_slug: source.slug.clone(),
             extension_slug: manifest.name.clone(),
-            display_name: manifest
-                .display_name
-                .clone()
-                .unwrap_or_else(|| manifest.name.clone()),
-            summary: manifest.description.clone(),
+            display_name: match &manifest.display_name {
+                Some(display_name) => Cow::Owned(display_name.clone()),
+                None => Cow::Owned(manifest.name.clone()),
+            },
+            summary: Cow::Owned(manifest.description.clone()),
             repository_url: manifest.repository.clone(),
             homepage_url: manifest.homepage.clone(),
             documentation_url: manifest.documentation.clone(),
             version: manifest.version.clone(),
-            author: manifest.author.clone().unwrap_or_default(),
-            license: manifest.license.clone(),
+            author: match &manifest.author {
+                Some(author) => Cow::Owned(author.clone()),
+                None => Cow::Owned(String::new()),
+            },
+            license: manifest
+                .license
+                .as_ref()
+                .map(|license| Cow::Owned(license.clone())),
             categories: manifest.categories.clone(),
             tags: manifest.tags.clone(),
             compatibility: manifest.compatibility.clone(),
             install_status: InstallStatus::Unknown,
             manifest_checksum: checksum,
-            readme_excerpt: manifest.readme.clone(),
-            last_synced_at: Some(SystemTime::now()),
+            readme_excerpt: manifest
+                .readme
+                .as_ref()
+                .map(|readme| Cow::Owned(readme.clone())),
+            last_synced_at: Some(now),
             cache_expires_at: Some(expires_at),
-            validation_summary: ValidationSummary::new_pending(SystemTime::now()),
+            validation_summary: ValidationSummary::new_pending(now),
             manifest_path: Some(".".to_string()),
-        }
+        })
     }
 
     fn extract_rate_limit(
@@ -191,17 +218,12 @@ impl SourceFetcher {
             .get("x-ratelimit-remaining")
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse::<u32>().ok());
-        let limit = headers
+        let _limit = headers
             .get("x-ratelimit-limit")
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse::<u32>().ok());
 
-        Some(RateLimitWindow {
-            source_slug: source_slug.to_string(),
-            reset_at,
-            remaining_requests: remaining,
-            limit,
-        })
+        Some(RateLimitWindow::new(source_slug, reset_at, remaining))
     }
 
     fn check_rate_limited(response: &reqwest::Response) -> bool {

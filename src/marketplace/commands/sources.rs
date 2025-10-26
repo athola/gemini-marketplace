@@ -67,7 +67,7 @@ pub fn add(url: &str, display_name: Option<String>, requires_auth: bool) -> Resu
 
     let parsed = Url::parse(url).context("invalid source URL")?;
     let slug = derive_slug(&parsed)?;
-    let name = display_name.unwrap_or_else(|| slug.clone());
+    let name = display_name.unwrap_or_else(|| slug.to_string());
     let source_type = infer_source_type(&parsed);
 
     let source = MarketplaceSource::new(slug, name, parsed, source_type, true, 5)

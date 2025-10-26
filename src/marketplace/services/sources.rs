@@ -172,21 +172,15 @@ impl SourcesService {
     }
 }
 
-impl Default for SourcesService {
-    fn default() -> Self {
-        Self::new().expect("Failed to initialize SourcesService")
-    }
-}
-
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::marketplace::models::domain::{SourceType, SyncStatus};
     use std::env;
     use std::sync::{Mutex, OnceLock};
     use tempfile::TempDir;
 
-    fn env_lock() -> &'static Mutex<()> {
+    pub(crate) fn env_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
     }
