@@ -1,0 +1,29 @@
+{
+  "source_slug": "custom-acme",
+  "batch_size": 500,
+  "etag": null,
+  "last_fetched": "2025-10-24T16:30:00Z",
+  "ttl_hours": 12,
+  "stale_after": "2025-10-25T04:30:00Z",
+  "extensions": [
+    {
+      "id": "custom-acme/team-chatops",
+      "name": "Team ChatOps",
+      "description": "Bridges Slack workflows with Gemini CLI extension deployment pipelines.",
+      "categories": ["operations", "productivity"],
+      "version": "2.1.0",
+      "install_status": "NotInstalled",
+      "warnings_present": false
+    },
+    {
+      "id": "custom-acme/deep-dive",
+      "name": "Deep Dive Reports",
+      "description": "Produces weekly install reports for Gemini CLI extensions.",
+      "categories": ["analytics"],
+      "version": "0.8.5",
+      "install_status": "Unknown",
+      "warnings_present": false
+    }
+  ],
+  "queued_jobs": []
+}

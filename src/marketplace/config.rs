@@ -63,7 +63,7 @@ impl Config {
         &self.log_dir
     }
 
-    /// User downloads directory, used as fallback when exporting manifests or reports.
+    /// User downloads directory, used as a default location when exporting manifests or reports.
     pub fn downloads_dir(&self) -> Option<PathBuf> {
         UserDirs::new().and_then(|ud| ud.download_dir().map(PathBuf::from))
     }

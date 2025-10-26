@@ -1,0 +1,27 @@
+{
+  "source_slug": "curated",
+  "batch_size": 500,
+  "etag": "W/\"curated-1.3\"",
+  "last_fetched": "2025-10-20T08:00:00Z",
+  "ttl_hours": 24,
+  "stale_after": "2025-10-21T08:00:00Z",
+  "extensions": [
+    {
+      "id": "curated/observability-insights",
+      "name": "Observability Insights",
+      "description": "Dashboards and alerts for Gemini extension telemetry.",
+      "categories": ["analytics", "monitoring"],
+      "version": "1.3.9",
+      "install_status": "NotInstalled",
+      "warnings_present": true
+    }
+  ],
+  "queued_jobs": [
+    {
+      "job_id": "22222222-2222-2222-2222-222222222222",
+      "source": "curated",
+      "status": "deferredRateLimit",
+      "retry_after": "2025-10-20T09:00:00Z"
+    }
+  ]
+}

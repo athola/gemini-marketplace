@@ -1,57 +1,68 @@
-# Quickstart — Gemini Marketplace Extension
+# Quickstart – Gemini CLI Extension Marketplace
 
 ## Prerequisites
-- Rust 1.82.0 toolchain (`rustup show active-toolchain` should report 1.82).
-- Gemini CLI installed and configured with `$GEMINI_CONFIG` directory writable.
-- Network access to GitHub (optional when browsing cached data).
+- Rust 1.82.0 toolchain (`rustup toolchain install 1.82.0`)
+- Gemini CLI installed and accessible on `PATH`
+- GitHub credentials (token or SSH agent) configured via OS credential helpers
+- Network access for initial catalog sync (offline mode supported afterwards)
 
-## Build & Test
+## Environment Setup
 ```bash
-cargo fmt
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
+git checkout 001-build-a-gemini
+rustup override set 1.82.0
+cargo install just --locked # optional command runner
 ```
 
-## Configure Sources
+Set `GEMINI_CONFIG` if you use a non-default config directory:
 ```bash
-# Add curated default (enabled by default)
-gemini marketplace sources list
-
-# Add an additional source
-gemini marketplace sources add https://github.com/example/team-marketplace
-
-# Remove a source
-gemini marketplace sources remove team-marketplace
+export GEMINI_CONFIG="$HOME/.config/gemini"
 ```
 
-## Browse Extensions
+## Running the Extension Locally
 ```bash
-# Paginated listing (table output)
-gemini marketplace list
-
-# Opt-in interactive pagination loop
-gemini marketplace list --interactive
-
-# Keyword search with category filter
-gemini marketplace search observability --category analytics
-
-# Show extension details (namespaced id)
-gemini marketplace show curated/awesome-extension
+cargo run --bin marketplace -- list --help
+cargo run --bin marketplace -- sources add https://github.com/athola/gemini-marketplace
 ```
 
-## Cache Management
-```bash
-# Force refresh all sources (honors rate-limit queues)
-gemini marketplace cache refresh --force
+The CLI spins up a local API server on demand; commands remain single-shot unless you pass
+`--interactive`.
 
-# Adjust TTL to 12 hours
-gemini marketplace cache ttl set 12
+## Test-First Workflow
+1. Create failing tests before implementing a story:
+   ```bash
+   cargo test tests::integration::marketplace_list::shows_paginated_results -- --nocapture
+   ```
+2. Implement the code to satisfy the failing tests.
+3. Run the full suite to ensure regressions are caught:
+   ```bash
+   cargo fmt
+   cargo clippy --all-targets -- -D warnings
+   cargo test --all-targets
+   ```
 
-# JSON output for scripting
-gemini marketplace list --json
-```
+## Working with Cached Data
+- Cache lives under `$GEMINI_CONFIG/extensions/marketplace/`.
+- Refresh the cache and monitor countdowns:
+  ```bash
+  cargo run --bin marketplace -- cache refresh
+  ```
+- Adjust TTL:
+  ```bash
+  cargo run --bin marketplace -- cache ttl set 12
+  ```
 
-## Observability Tips
-- Enable structured logging by setting `GEMINI_MARKETPLACE_LOG=json`.
-- Inspect metrics counters (cache hits, rate-limit waits) via `gemini marketplace list --json`.
-- When rate limited, the CLI displays a countdown sourced from the internal rate-limit window.
+## Observability Hooks
+- Use `--json` to emit structured CLI output suitable for piping to jq.
+- Enable verbose logs:
+  ```bash
+  RUST_LOG=marketplace=debug cargo run --bin marketplace -- list
+  ```
+- Metrics snapshot:
+  ```bash
+  curl http://127.0.0.1:8910/metrics
+  ```
+
+## Troubleshooting
+- **Credential errors**: Confirm `git credential` helpers are configured; the extension never stores secrets.
+- **Rate limit wait**: CLI surfaces countdown; rerun `cache refresh` once countdown reaches zero.
+- **Offline usage**: Listings fall back to cached manifests; warnings indicate stale data.

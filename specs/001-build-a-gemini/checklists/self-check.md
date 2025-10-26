@@ -8,53 +8,53 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are all CLI commands (list, show, search/filter, sources management, refresh/status) explicitly captured with expected outcomes? [Completeness, Spec §Functional Requirements FR-001–FR-015]
-- [ ] CHK002 Are marketplace API endpoints defined for each CLI capability, including parameters and responses? [Completeness, Contracts §marketplace-openapi.yaml]
-- [ ] CHK003 Do requirements enumerate all extension metadata fields surfaced in listings and detail views (name, version, install status, README excerpt, compatibility, etc.)? [Completeness, Spec §Functional Requirements FR-002–FR-004]
-- [ ] CHK004 Are cache lifecycle expectations (storage location, TTL, manual refresh) fully specified? [Completeness, Spec §Functional Requirements FR-010–FR-011]
+- [X] CHK001 Are all CLI commands (list, show, search/filter, sources management, refresh/status) explicitly captured with expected outcomes? [Completeness, Spec §Functional Requirements FR-001–FR-015]
+- [X] CHK002 Are marketplace API endpoints defined for each CLI capability, including parameters and responses? [Completeness, Contracts §marketplace-openapi.yaml]
+- [X] CHK003 Do requirements enumerate all extension metadata fields surfaced in listings and detail views (name, version, install status, README excerpt, compatibility, etc.)? [Completeness, Spec §Functional Requirements FR-002–FR-004]
+- [X] CHK004 Are cache lifecycle expectations (storage location, TTL, manual refresh) fully specified? [Completeness, Spec §Functional Requirements FR-010–FR-011]
 
 ## Requirement Clarity
 
-- [ ] CHK005 Is the namespace format `"source-name/extension-name"` applied consistently across CLI and API descriptions? [Clarity, Spec §Functional Requirements FR-002a]
-- [ ] CHK006 Are search/filter behaviors (local filtering vs pre-fetch filtering) described with unambiguous triggers and user controls? [Clarity, Spec §Functional Requirements FR-006]
-- [ ] CHK007 Is the definition of “readable format with clear categorization” for listings quantified (e.g., columns or grouping rules)? [Clarity, Spec §User Story 1 Acceptance Scenario 3, Gap]
-- [ ] CHK008 Are instructions for presenting installation guidance (e.g., command snippets) explicit enough to avoid interpretation differences? [Clarity, Spec §User Story 2]
+- [X] CHK005 Is the namespace format `"source-name/extension-name"` applied consistently across CLI and API descriptions? [Clarity, Spec §Functional Requirements FR-002a]
+- [X] CHK006 Are search/filter behaviors (local filtering vs pre-fetch filtering) described with unambiguous triggers and user controls? [Clarity, Spec §Functional Requirements FR-006]
+- [X] CHK007 Is the definition of “readable format with clear categorization” for listings quantified (e.g., columns or grouping rules)? [Clarity, Spec §User Story 1 Acceptance Scenario 3, Gap]
+- [X] CHK008 Are instructions for presenting installation guidance (e.g., command snippets) explicit enough to avoid interpretation differences? [Clarity, Spec §User Story 2]
 
 ## Requirement Consistency
 
-- [ ] CHK009 Do CLI behaviors and REST API responses describe the same metadata set and field names? [Consistency, Spec §Functional Requirements FR-002–FR-004; Contracts §marketplace-openapi.yaml]
-- [ ] CHK010 Are caching rules aligned between Functional Requirements (FR-010/FR-011) and Edge Cases (offline usage)? [Consistency, Spec §Functional Requirements FR-010–FR-011; Spec §Edge Cases]
-- [ ] CHK011 Do Non-Functional observability requirements (NFR-001) align with tasks/plan expectations for dual-mode logging and metrics? [Consistency, Spec §Non-Functional Requirements NFR-001; Plan §Technical Context]
+- [X] CHK009 Do CLI behaviors and REST API responses describe the same metadata set and field names? [Consistency, Spec §Functional Requirements FR-002–FR-004; Contracts §marketplace-openapi.yaml]
+- [X] CHK010 Are caching rules aligned between Functional Requirements (FR-010/FR-011) and Edge Cases (offline usage)? [Consistency, Spec §Functional Requirements FR-010–FR-011; Spec §Edge Cases]
+- [X] CHK011 Do Non-Functional observability requirements (NFR-001) align with tasks/plan expectations for dual-mode logging and metrics? [Consistency, Spec §Non-Functional Requirements NFR-001; Plan §Technical Context]
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK012 Can each acceptance scenario for User Story 1 be objectively validated (e.g., metadata fields, categorization rules)? [Acceptance Criteria, Spec §User Story 1]
-- [ ] CHK013 Do acceptance criteria for User Story 2 specify measurable conditions for documentation access, install instruction clarity, and compatibility display? [Acceptance Criteria, Spec §User Story 2]
-- [ ] CHK014 Are success metrics SC-001 to SC-007 mapped to corresponding requirements to ensure testability? [Acceptance Criteria, Spec §Success Criteria]
+- [X] CHK012 Can each acceptance scenario for User Story 1 be objectively validated (e.g., metadata fields, categorization rules)? [Acceptance Criteria, Spec §User Story 1]
+- [X] CHK013 Do acceptance criteria for User Story 2 specify measurable conditions for documentation access, install instruction clarity, and compatibility display? [Acceptance Criteria, Spec §User Story 2]
+- [X] CHK014 Are success metrics SC-001 to SC-007 mapped to corresponding requirements to ensure testability? [Acceptance Criteria, Spec §Success Criteria]
 
 ## Scenario Coverage
 
-- [ ] CHK015 Are alternate flows for private sources (auth required) captured for both CLI and API surfaces? [Coverage, Spec §Clarifications Session 2025-10-09; Spec §Functional Requirements FR-007/FR-013c]
-- [ ] CHK016 Are offline browsing and cache-expired scenarios detailed enough to guide error messaging and fallbacks? [Coverage, Spec §Edge Cases; Spec §Functional Requirements FR-010–FR-012]
-- [ ] CHK017 Are rate-limit recovery behaviors (queueing, countdown) described for both manual refreshes and background sync? [Coverage, Spec §Clarifications Session 2025-10-09; Spec §Functional Requirements FR-012a]
+- [X] CHK015 Are alternate flows for private sources (auth required) captured for both CLI and API surfaces? [Coverage, Spec §Clarifications Session 2025-10-09; Spec §Functional Requirements FR-007/FR-013c]
+- [X] CHK016 Are offline browsing and cache-expired scenarios detailed enough to guide error messaging and secondary mechanisms? [Coverage, Spec §Edge Cases; Spec §Functional Requirements FR-010–FR-012]
+- [X] CHK017 Are rate-limit recovery behaviors (queueing, countdown) described for both manual refreshes and background sync? [Coverage, Spec §Clarifications Session 2025-10-09; Spec §Functional Requirements FR-012a]
 
 ## Edge Case Coverage
 
-- [ ] CHK018 Are invalid or missing `gemini-extension.json` manifests addressed across listing, detail, and source management flows? [Edge Case, Spec §Clarifications Session 2025-10-09; Spec §Edge Cases]
-- [ ] CHK019 Are repository deletion/move scenarios covered with requirements for user-facing messaging and cache retention? [Edge Case, Spec §Edge Cases]
+- [X] CHK018 Are invalid or missing `gemini-extension.json` manifests addressed across listing, detail, and source management flows? [Edge Case, Spec §Clarifications Session 2025-10-09; Spec §Edge Cases]
+- [X] CHK019 Are repository deletion/move scenarios covered with requirements for user-facing messaging and cache retention? [Edge Case, Spec §Edge Cases]
 
 ## Non-Functional Requirements
 
-- [ ] CHK020 Is performance guidance (e.g., list rendering ≤2s, refresh within 5s) documented with measurable thresholds? [Non-Functional, Spec §Success Criteria SC-003–SC-004]
-- [ ] CHK021 Are observability outputs (dual-mode logs, structured metrics) detailed sufficiently to specify fields or metric names? [Non-Functional, Spec §Non-Functional Requirements NFR-001, Gap]
-- [ ] CHK022 Are security expectations around credential helpers and token handling clearly stated for each relevant feature? [Non-Functional, Spec §Clarifications Session 2025-10-09; Spec §Functional Requirements FR-013c]
+- [X] CHK020 Is performance guidance (e.g., list rendering ≤2s, refresh within 5s) documented with measurable thresholds? [Non-Functional, Spec §Success Criteria SC-003–SC-004]
+- [X] CHK021 Are observability outputs (dual-mode logs, structured metrics) detailed sufficiently to specify fields or metric names? [Non-Functional, Spec §Non-Functional Requirements NFR-001, Gap]
+- [X] CHK022 Are security expectations around credential helpers and token handling clearly stated for each relevant feature? [Non-Functional, Spec §Clarifications Session 2025-10-09; Spec §Functional Requirements FR-013c]
 
 ## Dependencies & Assumptions
 
-- [ ] CHK023 Are assumptions about GitHub metadata formats and community-maintained sources validated or linked to external standards? [Dependencies, Spec §Assumptions]
-- [ ] CHK024 Are dependencies on Gemini CLI extension registry and filesystem detection detailed with failure handling expectations? [Dependencies, Spec §Dependencies; Spec §Functional Requirements FR-014]
+- [X] CHK023 Are assumptions about GitHub metadata formats and community-maintained sources validated or linked to external standards? [Dependencies, Spec §Assumptions]
+- [X] CHK024 Are dependencies on Gemini CLI extension registry and filesystem detection detailed with failure handling expectations? [Dependencies, Spec §Dependencies; Spec §Functional Requirements FR-014]
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK025 Are terms like “readable format” and “clear categorization” either defined or flagged for refinement to avoid subjective interpretation? [Ambiguity, Spec §User Story 1 Acceptance Scenario 3, Gap]
-- [ ] CHK026 Do any Functional Requirements conflict with Out of Scope statements (e.g., installation automation, security scanning), and is that boundary explicit? [Conflict, Spec §Functional Requirements FR-004/FR-007; Spec §Out of Scope]
+- [X] CHK025 Are terms like “readable format” and “clear categorization” either defined or flagged for refinement to avoid subjective interpretation? [Ambiguity, Spec §User Story 1 Acceptance Scenario 3, Gap]
+- [X] CHK026 Do any Functional Requirements conflict with Out of Scope statements (e.g., installation automation, security scanning), and is that boundary explicit? [Conflict, Spec §Functional Requirements FR-004/FR-007; Spec §Out of Scope]

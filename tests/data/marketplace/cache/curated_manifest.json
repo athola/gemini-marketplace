@@ -1,0 +1,36 @@
+{
+  "source_slug": "curated",
+  "batch_size": 500,
+  "etag": "W/\"curated-1.4\"",
+  "last_fetched": "2025-10-25T10:00:00Z",
+  "ttl_hours": 24,
+  "stale_after": "2025-10-26T10:00:00Z",
+  "extensions": [
+    {
+      "id": "curated/observability-insights",
+      "name": "Observability Insights",
+      "description": "Dashboards and alerts for Gemini extension telemetry.",
+      "categories": ["analytics", "monitoring"],
+      "version": "1.4.2",
+      "install_status": "NotInstalled",
+      "warnings_present": false
+    },
+    {
+      "id": "curated/analysis-suite",
+      "name": "Analysis Suite",
+      "description": "Collection of data exploration commands for Gemini CLI.",
+      "categories": ["analytics"],
+      "version": "0.9.0",
+      "install_status": "Installed",
+      "warnings_present": false
+    }
+  ],
+  "queued_jobs": [
+    {
+      "job_id": "11111111-1111-1111-1111-111111111111",
+      "source": "curated",
+      "status": "pending",
+      "retry_after": null
+    }
+  ]
+}
