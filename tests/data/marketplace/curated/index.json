@@ -1,0 +1,6 @@
+{
+  "manifests": [
+    "curated-observability.json",
+    "curated-analysis-suite.json"
+  ]
+}

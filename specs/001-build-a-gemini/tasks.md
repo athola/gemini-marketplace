@@ -1,237 +1,187 @@
 # Tasks: Gemini CLI Extension Marketplace
 
-**Input**: Design documents from `specs/001-build-a-gemini/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+**Input**: Design documents from `/specs/001-build-a-gemini/`  
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
 
-**Tests**: Integration tests are requested via the spec’s independent test criteria and plan’s testing strategy. Each user story phase includes targeted tests using `assert_cmd`, axum-backed test servers, and `insta` snapshots.
+**Tests**: Constitution requires test-first delivery. Each story phase begins with failing tests before implementation.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+**Organization**: Tasks are grouped by user story so each story can ship and be tested independently.
 
 ## Format: `[ID] [P?] [Story] Description`
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3). Setup/Foundational/Polish tasks use `[Setup]`, `[Foundation]`, or `[Polish]`.
-- Include exact file paths in descriptions
+- **[P]** marks tasks that can run in parallel (different files, no direct dependencies).
+- **[Story]** labels the owning story (e.g., US1, US2). Setup/Foundational/Polish use descriptive labels.
+- Always include concrete file paths so the task is directly executable.
 
 ---
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Project initialization and baseline tooling
+**Purpose**: Prepare shared fixtures and helpers needed by all stories.
 
-- [X] T001 [Setup] Scaffold Rust crate with `Cargo.toml`, `src/lib.rs`, and `src/bin/marketplace.rs` aligned to the planned structure
-- [X] T002 [Setup] Declare required crates in `Cargo.toml` (`tokio`, `reqwest`, `serde`, `directories`, `thiserror`, `anyhow`, `indicatif`, dev `assert_cmd`, `insta`, `predicates`)
-- [X] T003 [Setup] Add repository-wide tooling configs (`rust-toolchain.toml`, `.cargo/config.toml`, `clippy.toml`) enforcing Rust 1.82.0 and lint rules
-- [X] T004 [Setup] Create testing scaffolds (`tests/integration/`, `tests/unit/`, `tests/common/mod.rs`) with placeholder harness setup
+- [ ] T001 [Setup] Create reusable catalog and manifest fixtures under `tests/data/marketplace/` (curated + custom sources with README excerpts) to drive integration scenarios.
+- [ ] T002 [Setup] Add an Axum-based fixture server helper with rate-limit toggles in `tests/common/http.rs` and expose it via `tests/common/mod.rs` for use in story tests.
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+**Purpose**: Core services that every user story depends on; must be complete before story work starts.
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+- [ ] T003 [Foundation] Implement persistent user preferences loading/saving (`config/preferences.json`) in `src/marketplace/services/preferences.rs` with coverage in `tests/unit/preferences_store.rs`.
+- [ ] T004 [Foundation] Build refresh job queue + background worker persisting state under the cache directory in `src/marketplace/services/refresh.rs` (support queued retry + rate-limit countdowns) with tests in `tests/unit/refresh_queue.rs`.
+- [ ] T005 [Foundation] Refactor `src/marketplace/services/source_fetcher.rs` and `src/marketplace/cache/store.rs` to fetch/save 500-extension batches with TTL metadata; add tests in `tests/unit/source_fetcher_batches.rs`.
 
-- [X] T005 [Foundation] Scaffold `src/marketplace/` module tree with stub files (`mod.rs`, `commands/mod.rs`, `services/mod.rs`, `models/{manifest.rs,domain.rs}`, `cache/mod.rs`, `api/mod.rs`)
-- [X] T006 [Foundation] Write unit tests for configuration helper path resolution in `tests/unit/config.rs`
-- [X] T007 [Foundation] Implement configuration helpers in `src/marketplace/config.rs` to resolve cache and preferences directories using the `directories` crate
-- [X] T008 [Foundation] Write unit tests for shared error mappings in `tests/unit/error.rs`
-- [X] T009 [Foundation] Introduce shared error enums and result aliases in `src/marketplace/error.rs` leveraging `thiserror`
-- [X] T010 [Foundation] Write unit tests for manifest parsing/normalization in `tests/unit/manifest.rs`
-- [X] T011 [Foundation] Parse `gemini-extension.json` manifests in `src/marketplace/models/manifest.rs`, including validation and warning aggregation
-- [X] T012 [Foundation] Write unit tests for domain entities and install state transitions in `tests/unit/domain.rs`
-- [X] T013 [Foundation] Model domain entities and install state in `src/marketplace/models/domain.rs` per `data-model.md`
-- [X] T014 [Foundation] Write integration tests for JSON cache persistence in `tests/integration/cache_store.rs`
-- [X] T015 [Foundation] Implement JSON cache store with TTL metadata in `src/marketplace/cache/store.rs`
-- [X] T016 [Foundation] Write integration tests for source synchronization with rate-limit simulation in `tests/integration/source_fetcher.rs`
-- [X] T017 [Foundation] Build source fetcher with GitHub rate-limit queue handling in `src/marketplace/services/source_fetcher.rs`
-- [X] T018 [Foundation] Write CLI parsing tests using `assert_cmd` for command routing in `tests/integration/cli_parse.rs`
-- [X] T019 [Foundation] Set up Clap-driven CLI bootstrap and command routing skeleton in `src/bin/marketplace.rs`
-- [X] T020 [Foundation] Write integration tests for Axum server bootstrap in `tests/integration/api_server.rs`
-- [X] T021 [Foundation] Implement lightweight HTTP server harness in `src/marketplace/api/server.rs` ready to host OpenAPI routes
-- [ ] T022 [Foundation] Write unit tests for default curated source configuration in `tests/unit/default_source.rs`
-- [ ] T023 [Foundation] Seed default curated marketplace source configuration and validation logic in `src/marketplace/services/sources.rs`
-
-**Checkpoint**: Foundation ready — user story implementation can now begin **(commit & open PR with setup/foundation)**
+**Checkpoint**: Foundation ready — verification that preferences, refresh queue, and batch caching all pass before entering User Story 1.
 
 ---
 
-## Phase 3: User Story 1 - Browse Available Extensions (Priority: P1) 🎯 MVP
+## Phase 3: User Story 1 – Browse Available Extensions (Priority: P1) 🎯 MVP
 
-**Goal**: Allow users to list available extensions with key metadata, respecting cache and install status requirements.
+**Goal**: Allow users to run `gemini marketplace list` to browse extensions with pagination, installed status, warnings, and offline cache fallback.
 
-**Independent Test**: Run `gemini marketplace list` with mocked sources to confirm the CLI displays names, descriptions, versions, install status, and source namespaces within 2 seconds using cached data.
+**Independent Test**: Running `gemini marketplace list` online, then offline, shows paginated results with install indicators, cache warnings, and identical JSON output via `--json`.
 
-### Tests for User Story 1
+### Tests (write first; ensure they fail)
 
-- [X] T024 [US1] Author `tests/integration/list_extensions.rs` using an in-process axum test server + `assert_cmd` to assert list output, caching, and warning behavior when manifests are skipped
-- [X] T025 [US1] Write tests for network failure messaging and cache fallback in `tests/integration/list_extensions.rs`
+- [ ] T006 [US1] Add integration coverage for list pagination, offline fallback, and JSON parity in `tests/integration/marketplace_list.rs` using the fixture server.
+- [ ] T007 [P] [US1] Add unit tests for `CatalogService::list` covering installed detection, warnings aggregation, and sort order in `tests/unit/catalog_list.rs`.
 
-### Implementation for User Story 1
+### Implementation
 
-- [X] T026 [US1] Implement listing workflow in `src/marketplace/services/catalog.rs` to merge cache, fetch manifests, compute install status, and skip invalid manifests with warnings
-- [X] T027 [P] [US1] Render tabular and JSON outputs in `src/marketplace/commands/list.rs`, including namespace formatting and pagination support
-- [X] T028 [US1] Wire the `list` command and options into Clap routing within `src/bin/marketplace.rs`
-- [ ] T029 [P] [US1] Expose `GET /marketplace/extensions` handler in `src/marketplace/api/extensions.rs` returning `ExtensionListResponse`
-- [X] T030 [US1] Implement graceful network-error messaging and fallback pathways across CLI and API list flows
+- [ ] T008 [US1] Introduce an install detection service that checks the registry then falls back to filesystem scans in `src/marketplace/services/install.rs`, and integrate it into `src/marketplace/services/catalog.rs`.
+- [ ] T009 [US1] Extend `ListRequest`/`ListResponse` in `src/marketplace/services/catalog.rs` (and supporting structs in `src/marketplace/models/domain.rs`) to include pagination, totals, cache freshness, and rate-limit metadata.
+- [ ] T010 [US1] Rework `src/marketplace/commands/list.rs` and wire options in `src/bin/marketplace.rs` to render paginated tables with next/prev prompts, installed badges, category chips, and aligned `--json` output.
+- [ ] T011 [US1] Implement the real `/marketplace/extensions` handler in `src/marketplace/api/extensions.rs` (map query params, return contract-compliant JSON) and update `src/marketplace/api/server.rs` to route through the stateful handler.
 
-**Checkpoint**: User Story 1 independently testable (MVP) **(commit & extend PR or open US1 PR)**
-
----
-
-## Phase 4: User Story 2 - View Extension Details (Priority: P2)
-
-**Goal**: Provide detailed information for a selected extension, including docs, compatibility, and install guidance.
-
-**Independent Test**: Execute `gemini marketplace show <source/extension>` to confirm extended metadata renders, README excerpts are available, and install instructions are surfaced.
-
-### Tests for User Story 2
-
-- [ ] T031 [US2] Create `tests/integration/view_extension_details.rs` covering detail retrieval, README excerpt rendering, and missing extension 404 handling
-
-### Implementation for User Story 2
-
-- [ ] T032 [US2] Extend `src/marketplace/services/catalog.rs` with detail retrieval, README extraction, and manifest checksum exposure
-- [ ] T033 [P] [US2] Implement `show` command presenter in `src/marketplace/commands/show.rs` with rich formatting and error messaging
-- [ ] T034 [US2] Register `show` subcommand and arguments in `src/bin/marketplace.rs`
-- [ ] T035 [P] [US2] Add `GET /marketplace/extensions/{extensionId}` route in `src/marketplace/api/extensions.rs` returning `ExtensionDetail`
-
-**Checkpoint**: User Stories 1 & 2 independently deliverable **(commit & open/extend PR for US2)**
+**Checkpoint**: User Story 1 complete — CLI list + API endpoint validated online/offline with recorded fixtures.
 
 ---
 
-## Phase 5: User Story 3 - Search and Filter Extensions (Priority: P3)
+## Phase 4: User Story 2 – View Extension Details (Priority: P2)
 
-**Goal**: Allow users to search and filter extensions by keyword, category, source, and installed status with optional pre-fetch filtering.
+**Goal**: Provide `gemini marketplace show <source/extension>` with full manifest details, README excerpt, and semantic validation results.
 
-**Independent Test**: Use `gemini marketplace list --search foo --category analytics --installed false` to confirm results filter correctly and pre-fetch mode limits outbound requests.
+**Independent Test**: `gemini marketplace show curated/example` returns detailed output including manifest path, validation errors, and install instructions in both table and JSON formats.
 
-### Tests for User Story 3
+### Tests (write first; ensure they fail)
 
-- [ ] T036 [US3] Add `tests/integration/search_extensions.rs` to verify local filtering, pre-fetch optimization toggles, category filtering, and installed-only views
+- [ ] T012 [US2] Add integration tests in `tests/integration/marketplace_show.rs` verifying detail rendering, README excerpts, and validation error surfacing.
+- [ ] T013 [P] [US2] Add unit tests for `CatalogService::detail` semantic validation flows in `tests/unit/catalog_detail.rs`.
 
-### Implementation for User Story 3
+### Implementation
 
-- [ ] T037 [US3] Enhance `src/marketplace/services/catalog.rs` with search/filter parameters, pre-fetch optimization, and metrics for filtered counts
-- [ ] T038 [P] [US3] Extend `src/marketplace/commands/list.rs` to accept `--search`, `--category`, `--source`, and `--installed` flags plus toggle for pre-fetch mode
-- [ ] T039 [P] [US3] Update `src/marketplace/api/extensions.rs` to parse query params and delegate to the enhanced search logic
+- [ ] T014 [US2] Implement `CatalogService::detail` returning a rich detail DTO, reloading cache when stale, and enriching with validation + install info in `src/marketplace/services/catalog.rs`.
+- [ ] T015 [US2] Add a semantic validation engine that performs deep manifest checks and README extraction in `src/marketplace/services/source_fetcher.rs` (new helper module `src/marketplace/services/validation.rs`).
+- [ ] T016 [US2] Replace the stubbed CLI command in `src/marketplace/commands/show.rs` (and hook via `src/bin/marketplace.rs`) to present detailed tables/JSON plus clear validation warnings.
+- [ ] T017 [US2] Complete the `/marketplace/extensions/:id` API route in `src/marketplace/api/extensions.rs` to return contract-compliant detail payloads and appropriate 404/422 errors.
 
-**Checkpoint**: User Stories 1–3 independently testable **(commit & open/extend PR for US3)**
-
----
-
-## Phase 6: User Story 4 - Manage Marketplace Sources (Priority: P4)
-
-**Goal**: Enable users to add, list, and remove marketplace sources, configure cache/search preferences, and observe refresh/status information respecting credential helpers.
-
-**Independent Test**: Run `gemini marketplace sources add ...`, `sources ls`, `sources rm`, and `marketplace status` to verify source lifecycle, preference persistence, and refresh queuing across authenticated/private repositories.
-
-### Tests for User Story 4
-
-- [ ] T040 [US4] Create `tests/integration/manage_sources.rs` covering add/list/remove, preference persistence (TTL & search mode), refresh queuing, and credential-helper reliance
-- [ ] T041 [US4] Write tests for dual-mode logging and metrics emission in `tests/integration/observability.rs`
-
-### Implementation for User Story 4
-
-- [ ] T042 [US4] Persist user preferences (TTL, search mode) in `src/marketplace/services/preferences.rs` and expose safe getters/setters
-- [ ] T043 [US4] Implement source registry lifecycle in `src/marketplace/services/sources.rs`, including validation, namespacing, and skip warnings
-- [ ] T044 [P] [US4] Build `sources` CLI subcommands in `src/marketplace/commands/sources.rs` for add/list/remove utilizing preference + source services
-- [ ] T045 [US4] Register nested `sources` CLI tree within `src/bin/marketplace.rs`
-- [ ] T046 [P] [US4] Implement `/marketplace/sources` REST routes in `src/marketplace/api/sources.rs` (GET/POST/DELETE) aligned to OpenAPI contract
-- [ ] T047 [US4] Implement refresh scheduler and rate-limit countdown in `src/marketplace/services/refresh.rs`
-- [ ] T048 [P] [US4] Add CLI commands in `src/marketplace/commands/refresh.rs` for manual refresh and status inspection
-- [ ] T049 [P] [US4] Expose `/marketplace/cache/refresh` and `/marketplace/status` endpoints in `src/marketplace/api/status.rs` returning queue + cache metrics
-- [ ] T050 [US4] Implement credential-helper detection, warnings, and documentation hooks in `src/marketplace/services/sources.rs`
-- [ ] T051 [US4] Implement dual-mode logging and structured metrics emission across CLI and API paths
-
-**Checkpoint**: All user stories complete and independently verifiable **(commit & open/extend PR for US4)**
+**Checkpoint**: User Story 2 complete — detail views tested independently, ready for demo.
 
 ---
 
-## Phase 7: Gemini CLI Integration (Pre-Release)
+## Phase 5: User Story 3 – Search and Filter Extensions (Priority: P3)
 
-**Purpose**: Validate the extension when invoked through the Gemini CLI binary. Keep this phase separate to prevent breakages in Gemini’s loader surface before polish work begins. **(commit once integration checks pass; consider pre-release PR)**
+**Goal**: Support keyword and category filtering through `gemini marketplace search`, honoring local-filter vs pre-fetch modes.
 
-- [ ] T052 [Integration] Create integration harness to link the built extension via `gemini extensions path add` and manage temporary config overrides
-- [ ] T053 [Integration] Execute smoke tests (`gemini marketplace list/show/status`) against mock data, capturing outputs for regression comparison
-- [ ] T054 [Integration] Document Gemini CLI integration workflow in `docs/integration.md` (or similar) for repeatable validation steps
+**Independent Test**: Running `gemini marketplace search observability --category analytics` filters the list appropriately and, when preferences request pre-fetch filtering, limits remote requests while reporting filtered totals.
+
+### Tests (write first; ensure they fail)
+
+- [ ] T018 [US3] Add integration test for search command filter behavior and telemetry when toggling pre-fetch mode in `tests/integration/marketplace_search.rs`.
+- [ ] T019 [P] [US3] Add unit tests validating search-mode branching between local filter and pre-fetch in `tests/unit/catalog_search.rs`.
+
+### Implementation
+
+- [ ] T020 [US3] Enhance `src/marketplace/services/source_fetcher.rs` to accept optional search/category filters, short-circuit remote manifest fetches when in pre-fetch mode, and report network savings metrics.
+- [ ] T021 [US3] Update `src/marketplace/commands/search.rs` (and shared list options) to set the pre-fetch flag, surface filter summaries, and reuse pagination helpers.
+- [ ] T022 [US3] Extend `/marketplace/extensions` handling in `src/marketplace/api/extensions.rs` to honor search/category parameters and return filtered counts alongside totals.
+
+**Checkpoint**: User Story 3 complete — targeted discovery flows validated.
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 6: User Story 4 – Manage Marketplace Sources (Priority: P4)
 
-**Purpose**: Repository-wide QA and documentation alignment
+**Goal**: Enable adding/removing/listing sources, recursive manifest discovery, and cache management commands (`sources`, `cache refresh`, `cache ttl set`).
 
-- [ ] T055 [Polish] Update `quickstart.md` with final CLI commands, Windows notes for credential helpers, and testing instructions
-- [ ] T056 [Polish] Update `README.md` / `docs/marketplace.md` summary with observability + credential guidance aligned to NFR-001 and FR-013c
-- [ ] T057 [Polish] Run `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, and full `cargo test` to ensure clean build before review **(final commit & release PR)**
+**Independent Test**: Adding a custom source via `sources add`, listing shows synced status with namespacing, removing cleans up, and cache commands queue refresh + update TTL settings.
+
+### Tests (write first; ensure they fail)
+
+- [ ] T023 [US4] Add integration tests for `sources add/list/remove` including monorepo recursion in `tests/integration/marketplace_sources.rs`.
+- [ ] T024 [P] [US4] Add integration tests for `cache refresh` and `cache ttl set` behavior (queue state, TTL persistence) in `tests/integration/marketplace_cache.rs`.
+
+### Implementation
+
+- [ ] T025 [US4] Extend `src/marketplace/services/sources.rs` to persist recursion depth, enabled flags, requires-auth metadata, and prevent conflicting slugs.
+- [ ] T026 [US4] Implement recursive manifest discovery with a configurable depth limit and skipped-manifest warnings in `src/marketplace/services/source_fetcher.rs`.
+- [ ] T027 [US4] Update CLI source commands in `src/marketplace/commands/sources.rs` and `src/bin/marketplace.rs` to accept display-name, recursion-depth, requires-auth flags, and render sync state.
+- [ ] T028 [US4] Implement cache management logic in `src/marketplace/commands/cache.rs`, wiring into `src/marketplace/services/refresh.rs` and preferences for TTL persistence with JSON output parity.
+- [ ] T029 [US4] Fulfill `/marketplace/sources`, `/marketplace/sources/add`, `/marketplace/sources/:name`, and `/marketplace/cache/refresh` routes in `src/marketplace/api/sources.rs` and `src/marketplace/api/status.rs`, returning contract-compliant responses.
+
+**Checkpoint**: User Story 4 complete — source lifecycle and cache controls independently verified.
+
+---
+
+## Phase 7: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final observability, documentation, and release readiness after all user stories.
+
+- [ ] T030 [Polish] Add structured logging + metrics counters (cache hits, rate-limit waits, skipped manifests) across commands/services in `src/marketplace/commands/list.rs`, `src/marketplace/services/catalog.rs`, and `src/marketplace/services/refresh.rs`.
+- [ ] T031 [P] [Polish] Refresh documentation (`README.md`, `specs/001-build-a-gemini/quickstart.md`) with final command examples, environment variables, and troubleshooting notes.
+- [ ] T032 [Polish] Run and capture release validation (`cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test --all-targets`) and attach logs for review.
 
 ---
 
 ## Dependencies & Execution Order
 
-### Phase Dependencies
-- **Phase 1 → Phase 2**: Foundational work depends on crate/tooling setup (T001–T004).
-- **Phase 2 → Phases 3–6**: All user story phases require foundational modules, config, cache, server scaffolding, and default source (T005–T023).
-- **Phase 3 (US1)**: Must finish before later stories to supply shared catalog capabilities and network error handling.
-- **Phase 4 (US2)** and **Phase 5 (US3)**: Depend on US1 service infrastructure but can start once listing service (T026) is stable.
-- **Phase 6 (US4)**: Depends on Phase 2 infrastructure and US1 catalog logic.
-- **Phase 7 (Integration)**: Runs after user story implementation to validate Gemini CLI end-to-end behavior.
-- **Phase 8 (Polish)**: Executes once integration checks are complete.
+- **Setup → Foundational**: T001–T002 must finish before T003–T005 so shared fixtures/helpers exist.
+- **Foundational → Stories**: T003–T005 unblock all story phases; no story work begins until they pass.
+- **Story Priority**: Execute US1 → US2 → US3 → US4. Later stories depend on catalog/list infrastructure established earlier but remain independently testable.
+- **Polish**: T030–T032 run only after all targeted user stories are complete.
 
-### User Story Dependencies
-- **US1**: Independent after foundational phase; delivers MVP.
-- **US2**: Depends on US1’s catalog foundations.
-- **US3**: Builds on US1 listing logic to extend search/filtering.
-- **US4**: Extends shared services and introduces new management + observability modules; does not block earlier stories.
+### Story Dependency Graph
 
-### Within-Story Ordering Highlights
-- Tests precede implementation tasks for every feature per constitution (e.g., T010 → T011, T024 → T026).
-- Services (T026, T032, T037, T043, T047) land before CLI/API wiring tasks that rely on them.
-- CLI wiring in `src/bin/marketplace.rs` (T028, T034, T045) must follow individual command implementations.
-- Integration harness tasks (T052–T054) should use built artifacts from prior phases.
-
----
-
-## Parallel Opportunities
-- **Foundation**: After T005 scaffolds modules, configuration (T006–T007) and error handling (T008–T009) can proceed alongside manifest work; cache (T014–T015) and fetcher (T016–T017) can run in parallel once dependencies mocked.
-- **US1**: Following T026 service completion, CLI rendering (T027) and REST route (T029) can progress concurrently while network-error work (T030) finalizes messaging.
-- **US2**: Detail command (T033) and API route (T035) operate in different files post-service update (T032).
-- **US3**: With T037 done, CLI flag wiring (T038) and API query parsing (T039) can run side by side.
-- **US4**: After T043 and T047 establish services, CLI commands (T044, T048) and HTTP routes (T046, T049) offer multiple parallel tracks, while observability (T041, T051) can execute with minimal overlap.
-- **Integration**: Gemini CLI smoke checks (T052–T054) rely on compiled binaries; these can run concurrently once US4 is done.
+```
+Setup → Foundational → US1 → US2 → US3 → US4 → Polish
+                 └──────────────┬──────────────┘
+                  (US2–US4 reuse catalog/cache infrastructure from US1)
+```
 
 ---
 
 ## Parallel Execution Examples
 
-- **User Story 1**: After completing T026, run T027 and T029 simultaneously to implement CLI and API surfaces for listing.
-- **User Story 2**: Following T032, split work so one developer handles T033 (CLI presenter) while another handles T035 (detail API route).
-- **User Story 3**: With T037 done, execute T038 (CLI flags) and T039 (API query parsing) in parallel to cover both interfaces.
-- **User Story 4**: Once T043 and T047 are finished, parallelize T044/T048 (CLI subcommands) and T046/T049 (REST endpoints), while observability tasks (T041, T051) run independently.
+- **Setup**: T001 (fixtures) and T002 (fixture server helper) can proceed concurrently once directories are created.
+- **US1**: T006 (integration) and T007 (unit) are parallelizable before implementation begins.
+- **US2**: T012 and T013 target different test suites and can run in parallel.
+- **US3**: T018 and T019 can be split between contributors while foundational work finishes.
+- **US4**: T023 (sources) and T024 (cache) cover distinct flows and can run concurrently.
+- **Polish**: T031 (docs) can proceed while T030 finalizes instrumentation, with T032 waiting for all code tasks to finish.
 
 ---
 
 ## Implementation Strategy
 
 ### MVP First (User Story 1 Only)
-1. Complete Phases 1–2 to establish the crate, infrastructure, and services.
-2. Deliver Phase 3 (US1) to provide browsing capability — this is the minimum viable marketplace.
-3. Validate via T024–T030 and ensure cached listings function before proceeding.
+1. Complete Phases 1–2 to solidify preferences, caching, and refresh infrastructure.
+2. Deliver US1 to provide discoverability and offline support.
+3. Validate MVP via CLI + API smoke tests before expanding scope.
 
 ### Incremental Delivery
-1. Ship US1 (P1) for initial marketplace visibility.
-2. Layer on US2 (P2) to add detail views without disrupting listing functionality.
-3. Introduce US3 (P3) to improve discoverability through search/filtering.
-4. Finish with US4 (P4) for source management, observability, preferences, and refresh/status tooling.
-5. Run Phase 7 integration tasks to validate Gemini CLI end-to-end behavior.
-6. Apply Phase 8 polish tasks before requesting review or release.
+1. Layer US2 for detailed inspection once listing works reliably.
+2. Add US3 to improve findability via search and category filters.
+3. Finish with US4 to empower custom sources and cache controls.
 
 ### Parallel Team Strategy
-1. Team collaborates on Phases 1–2.
-2. Assign US1 to Developer A to secure MVP while Developer B prepares US2 service extensions once T026 is merged.
-3. Developer C can begin US4 observability groundwork (T041, T051) after foundational tasks using mocks.
-4. Use the parallel opportunities list to avoid file conflicts and maintain independent delivery per story.
+1. Collaborate on foundational tasks, ensuring shared interfaces (`CatalogService`, `SourceFetcher`, `RefreshService`) are stable.
+2. Assign user stories to different contributors (e.g., Dev A on US1, Dev B on US2, Dev C on US3/US4) leveraging the fixture server and shared services.
+3. Reconvene for polish tasks and final validation prior to release.
 
 ---
 
-**Suggested MVP Scope**: Complete through Phase 3 (User Story 1). Subsequent stories enhance depth but are not required for initial release.
+## Notes
+
+- Keep tests failing until corresponding code tasks are complete to honor the constitution’s test-first mandate.
+- Mark tasks `[P]` only when files do not overlap and there are no logical dependencies.
+- Checkpoints after each story ensure incremental deliverables can be demoed or released independently.

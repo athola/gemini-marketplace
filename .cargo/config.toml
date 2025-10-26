@@ -1,5 +1,7 @@
-[build]
-rustflags = ["-Dwarnings"]
+[target.'cfg(all())']
+rustflags = [
+    "-Dwarnings"
+]
 
-[term]
-verbose = true
+[alias]
+clippy-strict = ["clippy", "--", "-D", "warnings"]

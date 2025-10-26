@@ -7,6 +7,7 @@
 use std::io;
 use std::path::PathBuf;
 
+use anyhow::Error as AnyError;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, MarketplaceError>;
@@ -23,8 +24,13 @@ pub enum MarketplaceError {
         source: io::Error,
     },
 
-    #[error("network request failed: {0}")]
-    Network(String),
+    #[error("network request failed: {operation}")]
+    Network {
+        operation: String,
+        #[source]
+        source: AnyError,
+        url: Option<String>,
+    },
 
     #[error("rate limit active for source {source_slug}{}", DisplayReset(reset_at))]
     RateLimited {
@@ -58,6 +64,18 @@ impl MarketplaceError {
 
     pub fn configuration(msg: impl Into<String>) -> Self {
         Self::Configuration(msg.into())
+    }
+
+    pub fn network(
+        operation: impl Into<String>,
+        error: impl Into<AnyError>,
+        url: Option<String>,
+    ) -> Self {
+        Self::Network {
+            operation: operation.into(),
+            source: error.into(),
+            url,
+        }
     }
 }
 

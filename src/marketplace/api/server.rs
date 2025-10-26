@@ -33,10 +33,10 @@ impl ApiServer {
     pub async fn run(self, addr: SocketAddr) -> Result<()> {
         let listener = TcpListener::bind(addr)
             .await
-            .map_err(|err| MarketplaceError::Network(format!("API server bind error: {err}")))?;
+            .map_err(|err| MarketplaceError::network("api_bind", err, Some(addr.to_string())))?;
         axum::serve(listener, self.router.into_make_service())
             .await
-            .map_err(|err| MarketplaceError::Network(format!("API server error: {err}")))
+            .map_err(|err| MarketplaceError::network("api_serve", err, None))
     }
 
     pub fn spawn(self, addr: SocketAddr) -> JoinHandle<Result<()>> {

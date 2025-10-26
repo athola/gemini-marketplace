@@ -172,8 +172,83 @@ impl SourcesService {
     }
 }
 
-impl Default for SourcesService {
-    fn default() -> Self {
-        Self::new().expect("Failed to initialize SourcesService")
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+    use crate::marketplace::models::domain::{SourceType, SyncStatus};
+    use std::env;
+    use std::sync::{Mutex, OnceLock};
+    use tempfile::TempDir;
+
+    pub(crate) fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn with_temp_home() -> TempDir {
+        let temp = TempDir::new().expect("temp dir");
+        let path = temp
+            .path()
+            .to_str()
+            .expect("temp path utf8 for env override");
+        env::set_var("GEMINI_MARKETPLACE_HOME", path);
+        temp
+    }
+
+    fn clear_temp_home() {
+        env::remove_var("GEMINI_MARKETPLACE_HOME");
+    }
+
+    #[test]
+    fn new_service_bootstraps_default_source() {
+        let _guard = env_lock().lock().unwrap();
+        let temp = with_temp_home();
+        let service = SourcesService::new().expect("service init");
+
+        let sources = service.list_sources().expect("list sources");
+        assert!(
+            sources
+                .iter()
+                .any(|s| s.default && s.slug == "athola" && s.enabled),
+            "expected default curated source present"
+        );
+
+        drop(service);
+        clear_temp_home();
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn add_source_persists_across_service_instances() {
+        let _guard = env_lock().lock().unwrap();
+        let temp = with_temp_home();
+        let service = SourcesService::new().expect("service init");
+
+        let new_source = MarketplaceSource::new(
+            "custom",
+            "Custom",
+            Url::parse("https://example.com/org/repo").unwrap(),
+            SourceType::GitUrl,
+            true,
+            5,
+        )
+        .with_sync_status(SyncStatus::Idle);
+
+        service.add_source(new_source.clone()).expect("add source");
+
+        drop(service);
+
+        // Re-initialize service to ensure persistence
+        let service_again = SourcesService::new().expect("service re-init");
+        let sources = service_again.list_sources().expect("list sources");
+
+        assert!(
+            sources.iter().any(|s| s.slug == new_source.slug),
+            "expected custom source persisted"
+        );
+
+        drop(service_again);
+        clear_temp_home();
+        temp.close().unwrap();
     }
 }

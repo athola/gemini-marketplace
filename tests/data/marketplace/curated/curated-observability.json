@@ -1,0 +1,15 @@
+{
+  "name": "observability-insights",
+  "displayName": "Observability Insights",
+  "description": "Dashboards and alerts for Gemini extension telemetry.",
+  "repository": "https://github.com/example/observability-insights",
+  "homepage": "https://example.com/observability",
+  "documentation": "https://docs.example.com/observability-insights",
+  "version": "1.4.2",
+  "author": "Athola Labs",
+  "license": "Apache-2.0",
+  "categories": ["analytics", "monitoring"],
+  "tags": ["metrics", "alerts"],
+  "compatibility": ["gemini-cli>=1.0"],
+  "readme": "# Observability Insights\n\nProvides dashboards, saved queries, and alert templates for auditing Gemini CLI extensions.\n"
+}

@@ -1,8 +1,11 @@
 .codex
 .claude
+.claude/
 .grok
 target
 **/*.rs.bk
 .specify/cache
 .specify/tmp
+.specify/
 *.txt
+AGENTS.md

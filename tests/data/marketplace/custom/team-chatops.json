@@ -1,0 +1,12 @@
+{
+  "name": "team-chatops",
+  "displayName": "Team ChatOps",
+  "description": "Bridges Slack workflows with Gemini CLI extension deployment pipelines.",
+  "repository": "https://git.example.com/org/chatops",
+  "version": "2.1.0",
+  "author": "Example Corp",
+  "categories": ["operations", "productivity"],
+  "tags": ["slack", "notifications"],
+  "compatibility": ["gemini-cli>=1.2"],
+  "readme": "# Team ChatOps\n\nAutomates deployment approvals from Slack and posts extension status summaries.\n"
+}
