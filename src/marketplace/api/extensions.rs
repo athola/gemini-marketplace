@@ -119,7 +119,7 @@ pub struct ExtensionSummary {
 pub fn router() -> Router {
     Router::new()
         .route("/marketplace/extensions", get(not_implemented_list))
-        .route("/marketplace/extensions/:id", get(not_implemented))
+        .route("/marketplace/extensions/{id}", get(not_implemented))
         .route("/marketplace/cache/refresh", post(not_implemented))
 }
 
@@ -128,7 +128,7 @@ pub fn router_with_state(catalog: Arc<CatalogService>) -> Router {
     let state = ExtensionsState { catalog };
     Router::new()
         .route("/marketplace/extensions", get(list_extensions))
-        .route("/marketplace/extensions/:id", get(not_implemented))
+        .route("/marketplace/extensions/{id}", get(not_implemented))
         .route("/marketplace/cache/refresh", post(not_implemented))
         .with_state(state)
 }

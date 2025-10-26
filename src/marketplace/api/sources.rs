@@ -12,7 +12,7 @@ pub fn router() -> Router {
             "/marketplace/sources",
             get(not_implemented).post(not_implemented),
         )
-        .route("/marketplace/sources/:slug", delete(not_implemented))
+        .route("/marketplace/sources/{slug}", delete(not_implemented))
 }
 
 async fn not_implemented() -> (StatusCode, &'static str) {
