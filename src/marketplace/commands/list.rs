@@ -49,6 +49,8 @@ pub async fn execute(opts: ListOptions) -> Result<()> {
             service.preferences().search_mode(),
             SearchMode::PreFetchFilter
         ),
+        page: None,
+        page_size: None,
     };
 
     let response = service.list(&request).await?;

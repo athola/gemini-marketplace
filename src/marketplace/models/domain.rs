@@ -7,6 +7,7 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use semver::Version;
@@ -218,7 +219,7 @@ pub struct CacheEntry {
     pub source_slug: String,
     pub batch_index: u32,
     pub manifest_checksum: String,
-    pub payload_path: String,
+    pub payload_path: PathBuf,
     #[serde(with = "humantime_serde")]
     pub fetched_at: SystemTime,
     #[serde(with = "humantime_serde")]
@@ -240,7 +241,7 @@ impl CacheEntry {
             source_slug: source_slug.into(),
             batch_index,
             manifest_checksum: checksum.unwrap_or_else(|| format!("batch-{batch_index}")),
-            payload_path: String::new(),
+            payload_path: PathBuf::new(),
             fetched_at,
             expires_at,
             extension_ids,

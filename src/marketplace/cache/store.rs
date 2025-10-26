@@ -144,7 +144,7 @@ impl CacheStore {
                 source_slug: source_slug.to_string(),
                 batch_index,
                 manifest_checksum: checksums.join(";"),
-                payload_path: path.to_string_lossy().into_owned(),
+                payload_path: path,
                 fetched_at: cache_file.fetched_at,
                 expires_at: cache_file.expires_at,
                 extension_ids: extensions.iter().map(|ext| ext.id.clone()).collect(),
@@ -184,7 +184,7 @@ impl CacheStore {
                 source_slug: source_slug.to_string(),
                 batch_index: 0,
                 manifest_checksum: checksums.join(";"),
-                payload_path: path.to_string_lossy().into_owned(),
+                payload_path: path,
                 fetched_at: cache_file.fetched_at,
                 expires_at: cache_file.expires_at,
                 extension_ids,
@@ -360,7 +360,7 @@ mod tests {
         assert!(snapshot
             .entry
             .payload_path
-            .ends_with("curated/batch-000.json"));
+            .ends_with(std::path::Path::new("curated/batch-000.json")));
         assert_eq!(snapshot.extensions.len(), 1);
         let loaded = &snapshot.extensions[0];
         assert_eq!(

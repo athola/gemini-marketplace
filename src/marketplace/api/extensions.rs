@@ -36,6 +36,12 @@ pub struct ListQueryParams {
     /// Use pre-fetch filtering to reduce API calls
     #[serde(default)]
     pub prefetch_filter: bool,
+    /// Page number (1-indexed)
+    #[serde(default)]
+    pub page: Option<usize>,
+    /// Page size (number of entries per page)
+    #[serde(default)]
+    pub page_size: Option<usize>,
 }
 
 /// JSON response for GET /marketplace/extensions
@@ -43,6 +49,11 @@ pub struct ListQueryParams {
 pub struct ExtensionListResponse {
     pub extensions: Vec<ExtensionSummary>,
     pub warnings: Vec<String>,
+    pub page: usize,
+    pub page_size: usize,
+    pub total_entries: usize,
+    pub total_pages: usize,
+    pub used_cached_data: bool,
 }
 
 /// Structured error response for API endpoints
@@ -254,7 +265,7 @@ fn map_marketplace_error_to_response(error: &MarketplaceError) -> (StatusCode, E
                 code: "IO_ERROR".to_string(),
                 message: format!("I/O error: {}", source),
                 details: Some(ErrorDetails::Io {
-                    path: Some(path.to_string_lossy().to_string()),
+                    path: path.to_str().map(|s| s.to_string()),
                     operation: Some("file operation".to_string()),
                 }),
             },
@@ -340,6 +351,8 @@ async fn list_extensions(
         source: params.source.as_deref(),
         installed_only: params.installed_only,
         prefetch_filter: params.prefetch_filter,
+        page: params.page,
+        page_size: params.page_size,
     };
 
     // Call the catalog service
@@ -368,6 +381,11 @@ async fn list_extensions(
     Ok(Json(ExtensionListResponse {
         extensions,
         warnings: response.warnings,
+        page: response.page,
+        page_size: response.page_size,
+        total_entries: response.total_entries,
+        total_pages: response.total_pages,
+        used_cached_data: response.used_cached_data,
     }))
 }
 

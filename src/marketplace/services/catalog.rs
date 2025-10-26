@@ -11,6 +11,8 @@ use crate::marketplace::models::domain::{
 use crate::marketplace::services::preferences::PreferencesService;
 use crate::marketplace::services::source_fetcher::SourceFetcher;
 
+const DEFAULT_PAGE_SIZE: usize = 25;
+
 pub struct CatalogService {
     fetcher: SourceFetcher,
     prefs: PreferencesService,
@@ -24,6 +26,8 @@ pub struct ListRequest<'a> {
     pub source: Option<&'a str>,
     pub installed_only: bool,
     pub prefetch_filter: bool,
+    pub page: Option<usize>,
+    pub page_size: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -87,11 +91,21 @@ impl CatalogService {
 
         let filtered = filter_entries(entries, request);
         let total_entries = filtered.len();
-        let page = 1;
-        let page_size = total_entries;
-        let total_pages = if total_entries == 0 { 1 } else { 1 };
+        let page_size = request
+            .page_size
+            .unwrap_or(DEFAULT_PAGE_SIZE)
+            .max(1);
+        let total_pages = ((total_entries + page_size - 1) / page_size).max(1);
+        let requested_page = request.page.unwrap_or(1).max(1);
+        let page = requested_page.min(total_pages);
+        let start = page_size.saturating_mul(page.saturating_sub(1));
+        let paginated: Vec<ListEntry> = filtered
+            .into_iter()
+            .skip(start)
+            .take(page_size)
+            .collect();
         Ok(ListResponse {
-            entries: filtered,
+            entries: paginated,
             warnings,
             page,
             page_size,
@@ -369,6 +383,8 @@ mod tests {
                 source: None,
                 installed_only: false,
                 prefetch_filter: false,
+                page: None,
+                page_size: None,
             })
             .await
             .expect("list");
