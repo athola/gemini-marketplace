@@ -10,7 +10,7 @@
 ### Session 2025-10-09
 
 - Q: When two marketplace sources provide extensions with the same name, how should the system resolve this conflict? → A: Namespace by source - Extensions shown as "source-name/extension-name"
-- Q: How should the system detect whether a Gemini CLI extension is currently installed? → A: Best effort both - Try registry first, fall back to file system scan
+- Q: How should the system detect whether a Gemini CLI extension is currently installed? → A: Best effort both - Try registry first, then a file system scan
 - Q: When the system encounters GitHub API rate limiting, what should it do? → A: Queue requests - Defer refresh until rate limit resets, show countdown timer
 - Q: Should search/filter by keyword happen before or after fetching marketplace data? → A: Both supported - Users can fetch all extensions from all sources OR optionally use search-before-fetch as a performance optimization to filter API requests and reduce data transfer
 - Q: How long should cached marketplace data remain valid before requiring a refresh? → A: User-controlled - Allow users to configure cache TTL with recommended default of 24 hours
@@ -37,6 +37,10 @@
 
 - Q: Which command structure should the marketplace extension expose for listing extensions, viewing details, managing sources, refreshing data, and adjusting cache TTL? → A: Top-level `gemini marketplace` command with subcommands: `list`, `show <id>`, `search`, `sources add/list/remove`, `cache refresh`, `cache ttl set <hours>`
 
+### Session 2025-10-26
+
+- Q: How should “common keywords” be defined for SC-005 search relevance measurement? → A: Use live telemetry to identify the top searched terms each release cycle and validate relevance against that rotating list
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Browse Available Extensions (Priority: P1)
@@ -51,7 +55,7 @@ As a Gemini CLI user, I want to discover what extensions are available so that I
 
 1. **Given** I am using Gemini CLI, **When** I run `gemini marketplace list`, **Then** I see a paginated list of available extensions with their names, descriptions, and source repositories
 2. **Given** the extension list is displayed, **When** I view the list, **Then** I can see key metadata for each extension including version information and installation status
-3. **Given** there are multiple extensions available, **When** I browse the list, **Then** extensions are organized in a readable format with clear categorization
+3. **Given** there are multiple extensions available, **When** I browse the list, **Then** each row displays the columns `namespace`, `name`, `version`, `categories`, `install status`, `source`, `warnings`, and `cache freshness`, with category values rendered as badges inline with the row
 4. **Given** the extension list contains more items than fit on one page, **When** I launch `gemini marketplace list --interactive` and use navigation commands (next/prev), **Then** I can navigate forward and backward through pages of results without re-invoking the command
 5. **Given** a marketplace source contains thousands of extensions, **When** I browse the list, **Then** the system lazily loads extensions in 500-extension increments, providing responsive performance without fetching the entire catalog upfront
 
@@ -67,7 +71,7 @@ As a Gemini CLI user, I want to view detailed information about a specific exten
 
 **Acceptance Scenarios**:
 
-1. **Given** I am viewing the extension list, **When** I run `gemini marketplace show <source-name/extension-name>`, **Then** I see comprehensive details including description, author, repository URL, version, and compatibility information
+1. **Given** I am viewing the extension list, **When** I run `gemini marketplace show <source-name/extension-name>`, **Then** I see its description, author, repository URL, version, and compatibility information
 2. **Given** I am viewing extension details, **When** the extension has documentation or README content, **Then** I can access that documentation directly
 3. **Given** I am viewing extension details, **When** I want to install the extension, **Then** I can see clear installation instructions with the exact GitHub URL to use
 4. **Given** I am viewing extension details, **When** the system performs full semantic validation, **Then** any manifest validation errors (invalid semver, malformed URLs, type mismatches) are displayed clearly to inform installation decisions
@@ -128,6 +132,7 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 - **FR-001b**: `gemini marketplace list` MUST execute as a single-shot command by default; an explicit `--interactive` flag enables an interactive prompt that accepts `next` / `prev` / `quit` navigation without re-running the command
 - **FR-002**: System MUST display extension metadata including name, description, repository URL, version, and author information
 - **FR-002a**: System MUST namespace extension identifiers as "source-name/extension-name" to handle extensions with identical names from different marketplace sources
+- **FR-002b**: `gemini marketplace list` output (table and JSON) MUST include the ordered fields `namespace`, `name`, `version`, `categories`, `install_status`, `source`, `warnings`, and `cache_freshness`, with human-readable mode showing these as labeled columns and JSON mirroring the same keys
 - **FR-003**: System MUST allow users to view detailed information for any listed extension
 - **FR-004**: System MUST provide the GitHub repository URL for each extension to enable manual installation
 - **FR-005**: System MUST support at least one default marketplace source containing publicly available Gemini CLI extensions
@@ -149,13 +154,13 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 - **FR-013c**: System MUST display full semantic validation errors (invalid semver, malformed URLs, type mismatches) clearly when users view extension details, allowing informed installation decisions
 - **FR-013d**: System MUST rely on existing Git credential helpers or environment variables for authenticating private sources and must not store credentials itself
 - **FR-013e**: System MUST allow users to configure the maximum recursion depth for monorepo directory scanning to balance between extension discovery coverage and performance requirements
-- **FR-014**: System MUST distinguish between installed and not-installed extensions in the display by checking Gemini CLI's extension registry first, then falling back to file system scans of known extension directories if registry is unavailable
+- **FR-014**: System MUST distinguish between installed and not-installed extensions in the display by checking Gemini CLI\'s extension registry first, then using a file system scan of known extension directories as a secondary check if the registry is unavailable
 - **FR-015**: System MUST support filtering extensions by category or tags when provided in extension metadata
 - **FR-016**: System MUST expose a top-level `gemini marketplace` command with subcommands `list`, `show <id>`, `search`, `sources add`, `sources list`, `sources remove`, `cache refresh`, and `cache ttl set <hours>` to provide browsing, management, and cache controls through a consistent CLI surface
 
 ### Non-Functional Requirements
 
-- **NFR-001**: System MUST provide dual-mode logging (human-readable by default, JSON when explicitly requested) and expose structured metrics tracking cache usage, rate-limit delays, and source sync outcomes to support troubleshooting
+- **NFR-001**: System MUST provide dual-mode logging (human-readable by default, JSON when explicitly requested) and expose structured metrics tracking cache usage (`marketplace.cache_hits`, `marketplace.cache_misses`), rate-limit delays with countdowns (`marketplace.rate_limit_wait_seconds`, `marketplace.rate_limit_resets_at`), refresh queue depth (`marketplace.refresh_queue_depth`), and top searched terms captured per release cycle (`marketplace.top_search_terms`) to support troubleshooting and SC-005 measurement
 - **NFR-002**: System MUST efficiently handle marketplace catalogs containing thousands of extensions by implementing lazy loading in 500-extension increments, ensuring responsive performance regardless of total catalog size
 
 ### Key Entities
@@ -172,7 +177,7 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 - **SC-002**: Users can view details for any extension and obtain installation instructions in under 30 seconds
 - **SC-003**: The marketplace displays extension lists within 2 seconds when using cached data
 - **SC-004**: Users can successfully add custom marketplace sources and see extensions from those sources within 5 seconds of adding
-- **SC-005**: Search functionality returns relevant results for at least 90% of common keywords related to available extensions
+- **SC-005**: Search functionality returns relevant results for at least 90% of the top searched terms captured via live telemetry during the current release cycle
 - **SC-006**: The system handles network failures gracefully with informative error messages, allowing users to continue browsing cached data while failed requests are queued for background retry with visible retry status
 - **SC-007**: Users can configure cache expiration settings to balance between data freshness and API usage according to their needs
 
@@ -194,7 +199,7 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 - Gemini CLI extension architecture must support this marketplace extension
 - Extension metadata standard must be established or adopted for consistent data retrieval
 - Access to Gemini CLI's extension registry or configuration system for installation status detection
-- Knowledge of Gemini CLI's extension installation directories for file system fallback detection
+- Knowledge of Gemini CLI's extension installation directories for detecting installations in the file system as a secondary check
 - Availability of Git credential helpers or environment-based authentication when accessing private marketplace sources
 
 ## Out of Scope

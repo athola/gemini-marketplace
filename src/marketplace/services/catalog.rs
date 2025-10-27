@@ -349,7 +349,7 @@ mod tests {
             output_format: OutputFormat::Table,
         });
 
-        // Seed cache with data so the rate-limit fallback has something to return.
+        // Seed cache with data so the service can return something when rate-limited.
         let cache = CacheStore::new(&config).expect("cache store");
         let cached_extension = sample_extension("rate-limited", "cached");
         cache
