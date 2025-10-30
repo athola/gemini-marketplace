@@ -329,16 +329,39 @@ pub struct UserPreferences {
     pub output_format: OutputFormat,
 }
 
+impl Default for UserPreferences {
+    fn default() -> Self {
+        Self {
+            cache_ttl_hours: 24,
+            auto_refresh_on_launch: false,
+            search_mode: SearchMode::default(),
+            output_format: OutputFormat::default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SearchMode {
     LocalFilter,
     PreFetchFilter,
 }
 
+impl Default for SearchMode {
+    fn default() -> Self {
+        SearchMode::LocalFilter
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OutputFormat {
     Table,
     Json,
+}
+
+impl Default for OutputFormat {
+    fn default() -> Self {
+        OutputFormat::Table
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

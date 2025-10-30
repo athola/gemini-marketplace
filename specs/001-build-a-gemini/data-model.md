@@ -1,123 +1,85 @@
-# Phase 1 Data Model – Gemini CLI Extension Marketplace
+# Data Model: Gemini CLI Extension Marketplace
 
 ## Entities
 
 ### Extension
-- **id**: `String` (format `source-slug/extension-slug`)
-- **source_slug**: `String`
-- **extension_slug**: `String`
-- **base_name**: `String`
-- **description**: `String`
-- **repository_url**: `Url`
-- **version**: `semver::Version`
-- **author**: `String`
-- **categories**: `Vec<String>`
-- **tags**: `Vec<String>`
-- **readme_excerpt**: `Option<String>`
-- **compatibility**: `Vec<String>` (CLI versions/features)
-- **install_status**: enum `{ Installed, NotInstalled, Unknown }`
-- **warnings**: `Vec<Warning>` (schema skip, validation issues, missing metadata)
-- **manifest_path**: `PathBuf`
-- **last_seen**: `DateTime<Utc>`
-- **cache_freshness**: enum `{ Fresh, Stale, Expired }`
-
-**Relationships**
-- Belongs to one `MarketplaceSource`.
-- Has many `ValidationIssue` records surfaced during detail lookup.
-
-**Validation Rules**
-- `repository_url` MUST be https.
-- `version` MUST parse as semantic version.
-- `description` trimmed length <= 500 chars for list view; full stored for detail.
-- `readme_excerpt` sanitized to plain text.
+- **Primary Identifier**: `namespace` (`<source>/<extension-name>`), stored as `String`
+- **Key Fields**: `name`, `version`, `description`, `repository_url`, `categories: Vec<String>`, `compatibility: Vec<String>`, `install_status`, `warnings: Vec<String>`, `cache_freshness`
+- **Relationships**: Belongs to exactly one `MarketplaceSource`; may reference zero or more `TelemetryEvent` records (search interactions)
+- **Validation Rules**:
+  - `version` MUST parse via `semver::Version`
+  - `repository_url` MUST be HTTPS
+  - `categories` limited to 10 entries, each ≤32 chars
+  - `install_status` is enum: `Installed`, `NotInstalled`, `Unknown`
+- **State Transitions**:
+  - `NotInstalled` → `Installed` after registry/file-system detection succeeds
+  - `Installed` → `NotInstalled` if both registry and file-system checks fail
+  - `Unknown` only during initialization before detection runs
 
 ### MarketplaceSource
-- **slug**: `String` (unique, kebab-case)
-- **display_name**: `String`
-- **source_type**: enum `{ GitHubRepo, GitUrl, LocalPath }`
-- **url**: `Url`
-- **enabled**: `bool`
-- **requires_auth**: `bool`
-- **default_recursion_depth**: `u8`
-- **last_synced_at**: `Option<DateTime<Utc>>`
-- **sync_status**: enum `{ Idle, Syncing, Error }`
-- **error_message**: `Option<String>`
-- **extensions_count**: `usize`
+- **Primary Identifier**: `name` (`String`), unique per user profile
+- **Key Fields**: `url`, `source_type` (`GitHubRepo`, `GitUrl`, `LocalPath`), `enabled`, `last_synced_at`, `recursion_limit`
+- **Relationships**: Owns many `Extension` records; tracked by `Preferences`
+- **Validation Rules**:
+  - `url` MUST be valid URL or absolute path (for `LocalPath`)
+  - `recursion_limit` default 5, range 1–10
+- **State Transitions**:
+  - `enabled` toggled via CLI `sources add/remove`
+  - `last_synced_at` updated after successful fetch
 
-**Validation Rules**
-- `slug` MUST be unique and immutable after creation.
-- `url` MUST be reachable (HEAD/GET) during add flow.
-- `requires_auth` sources trust external credential helpers.
-
-### CacheManifest
-- **source_slug**: `String`
-- **batch_size**: `usize` (default 500)
-- **etag**: `Option<String>`
-- **last_fetched**: `DateTime<Utc>`
-- **ttl_hours**: `u32`
-- **stale_after**: `DateTime<Utc>`
-- **extensions**: `Vec<ExtensionSummary>`
-- **queued_jobs**: `Vec<RefreshJobSummary>`
-
-**Validation Rules**
-- `ttl_hours` MUST match user preferences.
-- `last_fetched + ttl_hours` defines `stale_after`.
-- Stored under `$GEMINI_CONFIG/extensions/marketplace/{source}/manifest.json`.
+### CacheEntry
+- **Primary Identifier**: Composite (`marketplace_source`, `payload_type`)
+- **Key Fields**: `payload_hash`, `stored_at`, `expires_at`, `serialization_format`
+- **Relationships**: Linked to `MarketplaceSource` for data provenance
+- **Validation Rules**:
+  - `expires_at` = `stored_at` + TTL (24h default or user override)
+  - `payload_hash` verified against manifest checksums
+- **State Transitions**:
+  - Fresh → Stale when `now >= expires_at`
+  - Stale → Refreshing when queued for background refresh
+  - Refreshing → Fresh on successful fetch; remains Stale on failure
 
 ### RefreshJob
-- **job_id**: `Uuid`
-- **source_slug**: `String`
-- **requested_at**: `DateTime<Utc>`
-- **status**: enum `{ Pending, Running, DeferredRateLimit, Completed, Failed }`
-- **retry_after**: `Option<DateTime<Utc>>`
-- **attempts**: `u8`
-- **last_error**: `Option<String>`
+- **Primary Identifier**: `job_id` (`Uuid`)
+- **Key Fields**: `source_name`, `created_at`, `next_attempt_at`, `status`, `error_context`
+- **Relationships**: References `MarketplaceSource` and optionally `TelemetryEvent` (if triggered by search)
+- **Validation Rules**:
+  - `status` enum: `Queued`, `Running`, `Deferred`, `Completed`, `Failed`
+  - `next_attempt_at` MUST be ≥ `created_at`
+- **State Transitions**:
+  - `Queued` → `Running` when worker picks up job
+  - `Running` → `Completed` on success
+  - `Running` → `Deferred` when rate limited; `next_attempt_at` set to API reset time
+  - `Deferred` → `Running` when window opens
+  - Any state → `Failed` after retry budget exhausted (surface warning)
 
-**State Transitions**
-- `Pending → Running`: worker dequeues job.
-- `Running → DeferredRateLimit`: GitHub 429 encountered; sets `retry_after`.
-- `Running → Completed`: successful fetch + cache write.
-- `Running → Failed`: irrecoverable error (bad manifest, auth failure).
-- `DeferredRateLimit → Pending`: when countdown expires.
-- `Failed → Pending`: manual retry via `cache refresh`.
+### Preferences
+- **Primary Identifier**: single record per user (`preferences.json`)
+- **Key Fields**: `default_ttl_hours`, `enabled_sources: Vec<String>`, `metrics_opt_in`
+- **Relationships**: Tracks enabled `MarketplaceSource` names and influences caching rules
+- **Validation Rules**:
+  - `default_ttl_hours` range 1–168
+  - `enabled_sources` MUST reference existing sources during load
 
-### UserPreferences
-- **cache_ttl_hours**: `u32` (default 24)
-- **pre_fetch_search**: `bool`
-- **max_recursion_depth**: `u8` (default 5)
-- **json_output_default**: `bool`
-- **telemetry_opt_in**: `bool`
+### TelemetryEvent
+- **Primary Identifier**: auto-increment or UUID in memory (not persisted across runs unless opted-in)
+- **Key Fields**: `event_type` (`Search`, `List`, `Show`), `timestamp`, `payload`
+- **Relationships**: Aggregated per release for SC-005; linked to `Extension` when event references a specific namespace
+- **Validation Rules**:
+  - `payload` sanitized to exclude PII
+  - Persisted only when metrics opt-in enabled
 
-Stored as `config/preferences.json` beneath `$GEMINI_CONFIG/extensions/marketplace/`.
+## Derived Relationships & Aggregations
 
-## Supporting Types
+- `MarketplaceSource` 1—N `Extension`
+- `MarketplaceSource` 1—N `CacheEntry`
+- `RefreshJob` triggered per `MarketplaceSource` (optional per `Extension` detail view)
+- Telemetry aggregation produces `top_search_terms` dataset each release cycle, bounded to 50 entries
 
-### Warning
-- **kind**: enum `{ MissingManifest, SchemaInvalid, SemanticError, SourceUnavailable }`
-- **message**: `String`
-- **timestamp**: `DateTime<Utc>`
+## Data Lifecycle
 
-### ValidationIssue
-- **field**: `String`
-- **severity**: enum `{ Error, Warning }`
-- **detail**: `String`
-
-### ExtensionSummary
-- **id**: `String`
-- **name**: `String`
-- **description**: `String`
-- **categories**: `Vec<String>`
-- **version**: `String`
-- **install_status**: enum
-- **warnings_present**: `bool`
-
-Used by `CacheManifest` to avoid storing full detail data for listing.
-
-## Derived Views
-
-- **CatalogView**: Aggregates `ExtensionSummary` from all enabled sources, annotated with
-  installation status and cache freshness, sorted by name.
-- **DetailView**: Merges `Extension`, `ValidationIssue`, and README excerpt when user runs
-  `show`.
-- **SourceStatusView**: Combines `MarketplaceSource`, `CacheManifest`, and `RefreshJob` for
-  `sources list` and observability metrics.
+1. Source fetch populates `CacheEntry` (Fresh) and updates `Extension` records.
+2. TTL expiration marks entries Stale; background refresh enqueues `RefreshJob`.
+3. Refresh success updates cache and `last_synced_at`; failure keeps stale data with warnings.
+4. Preferences updates propagate immediate effect on TTL defaults and enabled sources.
+5. Telemetry counters reset each release cycle after success criteria evaluation.

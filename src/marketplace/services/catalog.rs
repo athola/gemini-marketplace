@@ -5,9 +5,7 @@ use anyhow::Result;
 use serde::Serialize;
 
 use crate::marketplace::error::MarketplaceError;
-use crate::marketplace::models::domain::{
-    Extension, InstallStatus, MarketplaceSource, OutputFormat, SearchMode,
-};
+use crate::marketplace::models::domain::{Extension, InstallStatus, MarketplaceSource};
 use crate::marketplace::services::preferences::PreferencesService;
 use crate::marketplace::services::source_fetcher::SourceFetcher;
 
@@ -91,19 +89,12 @@ impl CatalogService {
 
         let filtered = filter_entries(entries, request);
         let total_entries = filtered.len();
-        let page_size = request
-            .page_size
-            .unwrap_or(DEFAULT_PAGE_SIZE)
-            .max(1);
+        let page_size = request.page_size.unwrap_or(DEFAULT_PAGE_SIZE).max(1);
         let total_pages = ((total_entries + page_size - 1) / page_size).max(1);
         let requested_page = request.page.unwrap_or(1).max(1);
         let page = requested_page.min(total_pages);
         let start = page_size.saturating_mul(page.saturating_sub(1));
-        let paginated: Vec<ListEntry> = filtered
-            .into_iter()
-            .skip(start)
-            .take(page_size)
-            .collect();
+        let paginated: Vec<ListEntry> = filtered.into_iter().skip(start).take(page_size).collect();
         Ok(ListResponse {
             entries: paginated,
             warnings,
@@ -249,12 +240,7 @@ enum FetchResult {
 }
 
 pub fn default_preferences() -> PreferencesService {
-    PreferencesService::new(crate::marketplace::models::domain::UserPreferences {
-        cache_ttl_hours: 24,
-        auto_refresh_on_launch: false,
-        search_mode: SearchMode::LocalFilter,
-        output_format: OutputFormat::Table,
-    })
+    PreferencesService::new(crate::marketplace::models::domain::UserPreferences::default())
 }
 
 pub fn default_sources() -> Vec<MarketplaceSource> {

@@ -47,9 +47,9 @@
 
 As a Gemini CLI user, I want to discover what extensions are available so that I can enhance my CLI experience without manually searching GitHub repositories.
 
-**Why this priority**: This is the core value proposition - enabling discovery. Without the ability to browse extensions, users must rely on word-of-mouth or manual GitHub searches, which is the current friction point this feature addresses.
+**Why this priority**: This is the core feature. It solves the main problem of users having to manually search for extensions.
 
-**Independent Test**: Can be fully tested by launching the marketplace interface and verifying that a list of available extensions is displayed with their basic metadata (name, description, repository URL). Delivers immediate value by solving the discovery problem.
+**Independent Test**: Can be tested by launching the marketplace and verifying that a list of extensions is displayed.
 
 **Acceptance Scenarios**:
 
@@ -63,11 +63,11 @@ As a Gemini CLI user, I want to discover what extensions are available so that I
 
 ### User Story 2 - View Extension Details (Priority: P2)
 
-As a Gemini CLI user, I want to view detailed information about a specific extension so that I can make informed decisions about whether to install it.
+As a Gemini CLI user, I want to view detailed information about a specific extension so that I can make an informed decision about whether to install it.
 
-**Why this priority**: Once users can discover extensions (P1), they need detailed information to evaluate them. This includes documentation, compatibility, and usage examples.
+**Why this priority**: Users need details to evaluate extensions after discovering them. This includes documentation, compatibility, and usage examples.
 
-**Independent Test**: Can be tested by selecting any extension from the list and verifying that detailed information is displayed, including full description, installation instructions, requirements, and repository details.
+**Independent Test**: Can be tested by selecting an extension and verifying that its detailed information is displayed.
 
 **Acceptance Scenarios**:
 
@@ -80,11 +80,11 @@ As a Gemini CLI user, I want to view detailed information about a specific exten
 
 ### User Story 3 - Search and Filter Extensions (Priority: P3)
 
-As a Gemini CLI user, I want to search for extensions by keyword or filter by category so that I can quickly find extensions relevant to my needs.
+As a Gemini CLI user, I want to search for extensions by keyword or filter by category so that I can quickly find relevant extensions.
 
-**Why this priority**: Enhances discoverability once the basic marketplace is established. As the number of available extensions grows, search becomes increasingly valuable.
+**Why this priority**: Improves discovery as the number of extensions grows.
 
-**Independent Test**: Can be tested by entering search terms or applying filters and verifying that the displayed list updates to show only matching extensions.
+**Independent Test**: Can be tested by searching or filtering and verifying the list updates correctly.
 
 **Acceptance Scenarios**:
 
@@ -96,11 +96,11 @@ As a Gemini CLI user, I want to search for extensions by keyword or filter by ca
 
 ### User Story 4 - Manage Marketplace Sources (Priority: P4)
 
-As a Gemini CLI user, I want to add custom marketplace sources so that I can access organization-specific or private extension repositories in addition to public ones.
+As a Gemini CLI user, I want to add custom marketplace sources so that I can access organization-specific or private extension repositories.
 
-**Why this priority**: Supports team and enterprise use cases where organizations may maintain private extension catalogs. Less critical for individual users but important for broader adoption.
+**Why this priority**: Supports team and enterprise use cases.
 
-**Independent Test**: Can be tested by adding a custom marketplace source URL and verifying that extensions from that source appear in the marketplace alongside public extensions.
+**Independent Test**: Can be tested by adding a custom source and verifying that its extensions appear in the marketplace.
 
 **Acceptance Scenarios**:
 
@@ -113,101 +113,108 @@ As a Gemini CLI user, I want to add custom marketplace sources so that I can acc
 
 ### Edge Cases
 
-- Marketplace sources that are unreachable or return invalid data MUST surface a warning while preserving previously cached listings and queue the failed request for background retry
-- Network errors, timeouts, or invalid responses during marketplace data fetch MUST trigger background retry while users continue browsing cached data, with retry status visible to users
-- Extensions with missing `gemini-extension.json` metadata or failing basic schema validation (missing required fields) MUST be skipped during fetch and reported in the warning output
-- Extensions that pass basic schema validation but fail full semantic validation (invalid semver, malformed URLs, type mismatches) MUST be listed but display validation errors when users view details
-- Extension repositories that are deleted or moved MUST be indicated as unavailable while retaining cached metadata until expiration
-- When the user is offline or has no network connectivity, the system MUST continue displaying cached data, inform the user that results may be stale, and queue refresh for background retry when connectivity resumes
-- Extension metadata revisions that change format or version MUST be validated progressively: basic schema on fetch, full semantics on detail view, with incompatible manifests flagged appropriately at each stage
-- When recursively scanning marketplace source repositories for extension manifests, the system MUST enforce a configurable maximum recursion depth limit (default: 5 levels) to prevent excessive directory traversal, stopping the scan when the limit is reached and logging a warning if directories remain unscanned
-- Monorepo marketplace sources containing multiple extensions MUST have each discovered `gemini-extension.json` treated as an independent extension, with each extension namespaced appropriately by the source name
+- Unreachable or invalid marketplace sources MUST surface a warning, preserve cached listings, and queue the request for background retry.
+- Network errors during data fetch MUST trigger a background retry, with status visible to the user, while serving cached data.
+- Extensions with missing or invalid `gemini-extension.json` metadata MUST be skipped and reported in a warning.
+- Extensions failing full semantic validation MUST be listed but display validation errors on detail view.
+- Deleted or moved extension repositories MUST be marked as unavailable, retaining cached metadata until expiration.
+- Offline or no-network scenarios MUST display cached data with a staleness warning and queue a refresh for when connectivity resumes.
+- Metadata revisions MUST be validated progressively (schema on fetch, semantics on detail view), with incompatibilities flagged.
+- Recursive scanning for manifests MUST enforce a configurable depth limit (default: 5) to prevent excessive traversal, logging a warning if the limit is reached.
+- Each discovered `gemini-extension.json` in a monorepo MUST be treated as an independent, namespaced extension.
+
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST retrieve and display a curated list of available Gemini CLI extensions from configured marketplace sources
-- **FR-001a**: System MUST present extension lists using paginated output with navigation commands (next/prev) to allow users to browse results page by page
-- **FR-001b**: `gemini marketplace list` MUST execute as a single-shot command by default; an explicit `--interactive` flag enables an interactive prompt that accepts `next` / `prev` / `quit` navigation without re-running the command
-- **FR-002**: System MUST display extension metadata including name, description, repository URL, version, and author information
-- **FR-002a**: System MUST namespace extension identifiers as "source-name/extension-name" to handle extensions with identical names from different marketplace sources
-- **FR-002b**: `gemini marketplace list` output (table and JSON) MUST include the ordered fields `namespace`, `name`, `version`, `categories`, `install_status`, `source`, `warnings`, and `cache_freshness`, with human-readable mode showing these as labeled columns and JSON mirroring the same keys
-- **FR-003**: System MUST allow users to view detailed information for any listed extension
-- **FR-004**: System MUST provide the GitHub repository URL for each extension to enable manual installation
-- **FR-005**: System MUST support at least one default marketplace source containing publicly available Gemini CLI extensions
-- **FR-005a**: The default curated marketplace source MUST be seeded from `https://github.com/athola/gemini-marketplace` and remain enabled unless the user explicitly disables it
-- **FR-006**: System MUST allow users to search extensions by keyword (supporting partial or full matches) in name or description, with two modes: (1) fetch all extensions from all sources then filter locally, or (2) optionally apply search filters to marketplace API requests before fetching to minimize API calls and improve performance
-- **FR-007**: System MUST allow users to add custom marketplace sources via GitHub repository URLs or git URLs
-- **FR-008**: System MUST allow users to list all configured marketplace sources
-- **FR-009**: System MUST allow users to remove previously added marketplace sources
-- **FR-010**: System MUST cache marketplace data locally to reduce network requests and enable offline viewing of previously fetched data, with a configurable cache time-to-live (TTL) defaulting to 24 hours
-- **FR-010a**: System MUST allow users to configure the cache TTL to control the trade-off between data freshness and API usage
-- **FR-010b**: System MUST implement lazy loading, fetching and caching marketplace extension data in increments of 500 extensions at a time to support larger catalogs efficiently without loading all extensions upfront
-- **FR-011**: System MUST provide a mechanism to manually refresh/update marketplace data from sources, bypassing the cache
-- **FR-012**: System MUST handle network errors gracefully by queuing failed requests for background retry while serving cached data to users, informing users when marketplace data cannot be retrieved immediately and indicating that retry is in progress
-- **FR-012a**: System MUST handle GitHub API rate limiting by queuing refresh requests until the rate limit resets, displaying a countdown timer to inform users when the request will be retried
-- **FR-012b**: System MUST implement background retry for failed marketplace data fetches (network errors, timeouts, invalid responses), allowing users to continue browsing cached data while retries proceed asynchronously
-- **FR-013**: System MUST validate marketplace source URLs and metadata format before accepting them
-- **FR-013a**: System MUST discover extensions within marketplace source repositories by recursively scanning for `gemini-extension.json` manifest files in subdirectories up to a configurable maximum recursion depth (default: 5 levels deep) supporting monorepo structures containing multiple extensions, parsing each discovered manifest using progressive validation: basic schema validation (required fields: name, version, description, repository) during initial fetch to populate listings, and full semantic validation (type checking, semver format, URL validity, constraint validation) when users view extension details
-- **FR-013b**: System MUST omit extensions lacking a valid `gemini-extension.json` manifest or failing basic schema validation during fetch, emitting a user-visible warning identifying the skipped repository
-- **FR-013c**: System MUST display full semantic validation errors (invalid semver, malformed URLs, type mismatches) clearly when users view extension details, allowing informed installation decisions
-- **FR-013d**: System MUST rely on existing Git credential helpers or environment variables for authenticating private sources and must not store credentials itself
-- **FR-013e**: System MUST allow users to configure the maximum recursion depth for monorepo directory scanning to balance between extension discovery coverage and performance requirements
-- **FR-014**: System MUST distinguish between installed and not-installed extensions in the display by checking Gemini CLI\'s extension registry first, then using a file system scan of known extension directories as a secondary check if the registry is unavailable
-- **FR-015**: System MUST support filtering extensions by category or tags when provided in extension metadata
-- **FR-016**: System MUST expose a top-level `gemini marketplace` command with subcommands `list`, `show <id>`, `search`, `sources add`, `sources list`, `sources remove`, `cache refresh`, and `cache ttl set <hours>` to provide browsing, management, and cache controls through a consistent CLI surface
+- **FR-001**: MUST retrieve and display a curated list of extensions from configured marketplace sources.
+- **FR-001a**: MUST present extension lists using paginated output with navigation commands (next/prev).
+- **FR-001b**: `gemini marketplace list` MUST execute as a single-shot command by default; an `--interactive` flag enables an interactive prompt for navigation.
+- **FR-002**: MUST display extension metadata including name, description, repository URL, version, and author.
+- **FR-002a**: MUST namespace extension identifiers as `source-name/extension-name` to handle naming conflicts.
+- **FR-002b**: `gemini marketplace list` output MUST include `namespace`, `name`, `version`, `categories`, `install_status`, `source`, `warnings`, and `cache_freshness`.
+- **FR-003**: MUST allow users to view detailed information for any listed extension.
+- **FR-004**: MUST provide the GitHub repository URL for each extension to enable manual installation.
+- **FR-005**: MUST support at least one default marketplace source.
+- **FR-005a**: The default curated marketplace source MUST be `https://github.com/athola/gemini-marketplace` and enabled by default.
+- **FR-006**: MUST support keyword search in name or description, with two modes: local filtering after fetching all extensions, or optional pre-filtering of API requests.
+- **FR-007**: MUST allow users to add custom marketplace sources via GitHub repository or git URLs.
+- **FR-008**: MUST allow users to list all configured marketplace sources.
+- **FR-009**: MUST allow users to remove previously added marketplace sources.
+- **FR-010**: MUST cache marketplace data locally with a configurable TTL (default: 24 hours).
+- **FR-010a**: MUST allow users to configure the cache TTL.
+- **FR-010b**: MUST implement lazy loading, fetching and caching data in increments of 500 extensions.
+- **FR-010c**: MUST treat cached records as stale when `stored_at + TTL <= now`, label them as such, and enqueue a background refresh.
+- **FR-011**: MUST provide a mechanism to manually refresh marketplace data, bypassing the cache.
+- **FR-012**: MUST handle network errors gracefully by queuing failed requests for background retry and serving cached data.
+- **FR-012a**: MUST handle GitHub API rate limiting by queuing refresh requests until the rate limit resets and displaying a countdown timer.
+- **FR-012b**: MUST implement background retry for failed marketplace data fetches.
+- **FR-013**: MUST validate marketplace source URLs and metadata format.
+- **FR-013a**: MUST discover extensions by recursively scanning for `gemini-extension.json` files (up to a configurable depth, default: 5) and perform progressive validation (basic schema on fetch, full semantic on detail view).
+- **FR-013b**: MUST omit extensions with invalid or missing `gemini-extension.json` manifests and emit a warning.
+- **FR-013c**: MUST display full semantic validation errors on the extension detail view.
+- **FR-013d**: MUST rely on existing Git credential helpers for authenticating private sources and not store credentials.
+- **FR-013e**: MUST allow users to configure the maximum recursion depth for monorepo scanning.
+- **FR-014**: MUST distinguish between installed and not-installed extensions by checking the Gemini CLI extension registry first, then the file system.
+- **FR-014a**: MUST persist preferences, sources, and cache configuration in `$GEMINI_CONFIG/extensions/marketplace/preferences.json`.
+- **FR-015**: MUST support filtering extensions by category or tags.
+- **FR-016**: MUST expose a `gemini marketplace` command with subcommands: `list`, `show <id>`, `search`, `sources add/list/remove`, `cache refresh`, and `cache ttl set <hours>`.
+- **FR-017**: The embedded HTTP API MUST be scoped for local CLI use only.
 
 ### Non-Functional Requirements
 
-- **NFR-001**: System MUST provide dual-mode logging (human-readable by default, JSON when explicitly requested) and expose structured metrics tracking cache usage (`marketplace.cache_hits`, `marketplace.cache_misses`), rate-limit delays with countdowns (`marketplace.rate_limit_wait_seconds`, `marketplace.rate_limit_resets_at`), refresh queue depth (`marketplace.refresh_queue_depth`), and top searched terms captured per release cycle (`marketplace.top_search_terms`) to support troubleshooting and SC-005 measurement
-- **NFR-002**: System MUST efficiently handle marketplace catalogs containing thousands of extensions by implementing lazy loading in 500-extension increments, ensuring responsive performance regardless of total catalog size
+- **NFR-001**: MUST provide dual-mode logging (human-readable and JSON) and structured metrics for cache usage, rate-limit delays, refresh queue depth, and top searched terms.
+- **NFR-002**: MUST handle large extension catalogs efficiently by implementing lazy loading in 500-extension increments.
+- **NFR-003**: Telemetry collection MUST be opt-out by default and store aggregated, non-identifying data.
 
 ### Key Entities
 
-- **Extension**: Represents a Gemini CLI extension with attributes including unique identifier (namespaced as "source-name/extension-name"), base name (the extension's own name), description, repository URL, version number, author/maintainer, source marketplace name, categories/tags, compatibility requirements, and installation status
-- **Marketplace Source**: Represents a repository or catalog of extensions with attributes including source name (used for namespacing), source URL, source type (GitHub repo, git URL, local path), last updated timestamp, and enabled/disabled status
-- **Extension Metadata**: Information about an extension including README content, installation instructions, dependencies, and compatibility information extracted from the root-level `gemini-extension.json` manifest
+- **Extension**: A Gemini CLI extension, with a namespaced unique identifier (`source-name/extension-name`), name, description, repository URL, version, author, source, categories, compatibility, and installation status.
+- **Marketplace Source**: A repository or catalog of extensions, with a name, URL, type (GitHub, git, local), last updated timestamp, and enabled/disabled status.
+- **Extension Metadata**: Information about an extension from its `gemini-extension.json` manifest, including README, installation instructions, and dependencies.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Users can discover available Gemini CLI extensions without leaving the CLI interface or manually searching GitHub
-- **SC-002**: Users can view details for any extension and obtain installation instructions in under 30 seconds
-- **SC-003**: The marketplace displays extension lists within 2 seconds when using cached data
-- **SC-004**: Users can successfully add custom marketplace sources and see extensions from those sources within 5 seconds of adding
-- **SC-005**: Search functionality returns relevant results for at least 90% of the top searched terms captured via live telemetry during the current release cycle
-- **SC-006**: The system handles network failures gracefully with informative error messages, allowing users to continue browsing cached data while failed requests are queued for background retry with visible retry status
-- **SC-007**: Users can configure cache expiration settings to balance between data freshness and API usage according to their needs
+- **SC-001**: Users can discover extensions without leaving the CLI.
+- **SC-002**: Users can view extension details and get installation instructions in under 30 seconds.
+- **SC-003**: The marketplace displays extension lists within 2 seconds when using cached data.
+- **SC-004**: Users can add custom sources and see their extensions within 5 seconds.
+- **SC-005**: Search returns relevant results for at least 90% of top searched terms.
+- **SC-006**: The system handles network failures gracefully, serving cached data while retrying in the background.
+- **SC-007**: Users can configure cache expiration.
 
 ## Assumptions
 
-- Extension metadata is defined by individual `gemini-extension.json` manifests (either at repository root or in subdirectories for monorepo structures) documented in the Gemini CLI extension release guide
-- The default marketplace source will be a GitHub repository maintained by the community or project maintainers containing a curated list of extensions
-- Extensions follow Gemini CLI's existing installation pattern via GitHub URLs
-- Users have network connectivity for initial marketplace data retrieval, but can browse cached data offline
-- Extension versioning follows semantic versioning principles
-- The marketplace extension itself will be installed using the standard Gemini CLI extension installation method
-- The default cache TTL of 24 hours provides a reasonable balance between data freshness and API usage for most users, but is configurable for specific needs
-- Marketplace catalogs may grow to thousands of extensions across all sources, requiring lazy loading (500-extension increments) to maintain responsive performance
-- Marketplace sources may be structured as monorepos containing multiple extensions, requiring recursive directory scanning with enforced depth limits to discover all extension manifests
+- Extension metadata is defined by `gemini-extension.json` manifests.
+- The default marketplace source is a GitHub repository.
+- Extensions are installed via GitHub URLs.
+- Users have network connectivity for initial data retrieval, but can browse cached data offline.
+- Extensions follow semantic versioning.
+- The marketplace extension is installed using the standard Gemini CLI method.
+- The default 24-hour cache TTL is a reasonable balance, but is configurable.
+- Marketplace catalogs may contain thousands of extensions, requiring lazy loading.
+- Marketplace sources may be monorepos, requiring recursive scanning.
+- Telemetry is opt-in and stores aggregated, non-identifying data.
+- Preferences, cache, and source configurations are stored in `$GEMINI_CONFIG/extensions/marketplace/`.
 
 ## Dependencies
 
-- Access to GitHub API or raw GitHub content for fetching marketplace data
-- Gemini CLI extension architecture must support this marketplace extension
-- Extension metadata standard must be established or adopted for consistent data retrieval
-- Access to Gemini CLI's extension registry or configuration system for installation status detection
-- Knowledge of Gemini CLI's extension installation directories for detecting installations in the file system as a secondary check
-- Availability of Git credential helpers or environment-based authentication when accessing private marketplace sources
+- Access to GitHub API or raw GitHub content.
+- A supported Gemini CLI extension architecture.
+- An established extension metadata standard.
+- Access to the Gemini CLI extension registry or configuration for installation status.
+- Knowledge of Gemini CLI extension installation directories for secondary checks.
+- Availability of Git credential helpers for private sources.
 
 ## Out of Scope
 
-- Automated extension installation (users will use the standard Gemini CLI installation commands with provided URLs)
-- Extension verification, security scanning, or safety guarantees
-- Extension ratings, reviews, or user feedback mechanisms
-- Extension dependency resolution or compatibility checking beyond displaying metadata
-- Extension update notifications or version management
-- Creating or publishing extensions to marketplaces
-- Hosting marketplace infrastructure (relies on existing GitHub/git hosting)
+- Automated extension installation.
+- Extension verification, security scanning, or safety guarantees.
+- Extension ratings, reviews, or feedback mechanisms.
+- Extension dependency resolution or compatibility checking beyond displaying metadata.
+- Extension update notifications or version management.
+- Creating or publishing extensions.
+- Hosting marketplace infrastructure.
