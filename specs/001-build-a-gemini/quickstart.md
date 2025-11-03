@@ -11,7 +11,9 @@
 ```bash
 git clone https://github.com/gemini-rs/marketplace.git
 cd marketplace
-cargo install --path .
+cargo install --path . --force
+gemini extensions link "$(pwd)"
+gemini extensions list
 ```
 
 Validate installation:
@@ -19,6 +21,27 @@ Validate installation:
 ```bash
 gemini marketplace --help
 ```
+
+All runtime state lives under `$GEMINI_CONFIG/extensions/marketplace/` (defaults to `~/.gemini/extensions/marketplace/` when the environment variable is unset).
+
+Inside the Gemini chat UI you can invoke the same functionality with the slash command:
+
+```bash
+/marketplace list --json
+/marketplace cache refresh --force
+```
+
+For day-to-day development, the repo ships with a `Makefile`:
+
+```bash
+make help          # show available shortcuts
+make fmt            # cargo fmt
+make lint           # cargo clippy --all-targets --all-features -- -D warnings
+make test           # cargo test
+make local-publish  # rebuild and sync into ~/.gemini/extensions/gemini-marketplace
+```
+
+Use `make local-publish` to simulate a catalog release locally before pushing an official extension update.
 
 ## Seed Default Source
 
@@ -95,6 +118,17 @@ Force a refresh immediately:
 gemini marketplace cache refresh
 ```
 
+Check marketplace status and diagnostics:
+
+```bash
+gemini marketplace status
+gemini marketplace status --json
+```
+
+> Tip: When calling the extension via `gemini marketplace …`, ensure the
+> CLI is launched with the `run_shell_command` tool enabled, e.g.:
+> `gemini --allowed-tools run_shell_command marketplace status -- --json`.
+
 ## Troubleshooting & Status
 
 Check background refresh and rate-limit state:
@@ -121,7 +155,7 @@ This workflow demonstrates the extension's capabilities in an isolated environme
     export GEMINI_MARKETPLACE_HOME="$(mktemp -d)"
     export GEMINI_MARKETPLACE_LOG=info
     export GEMINI_MARKETPLACE_LOG_FORMAT=text
-    ```
+```
 
 2. **Show current configuration**
 

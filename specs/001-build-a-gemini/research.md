@@ -2,7 +2,7 @@
 
 ## Summary
 
-Focused research confirmed the ergonomics of the CLI surface, data validation strategy, cache design, observability stack, and background refresh approach needed to satisfy the constitution and feature spec.
+Research focused on confirming the CLI's usability, data validation, cache design, observability, and background refresh. These areas are critical for meeting the project's requirements.
 
 ### CLI Pagination & Interaction Model
 Decision: Keep `gemini marketplace list` single-shot by default with opt-in interactive paging (`--interactive`) and explicit navigation commands.  
@@ -16,12 +16,12 @@ Alternatives considered: Full validation on fetch (rejected—slows pagination);
 
 ### Cache TTL & Refresh Mechanism
 Decision: Persist TTL metadata alongside cached payloads, defaulting to 24 hours, allow user overrides via `cache ttl set`, and trigger background refresh when TTL expires or user runs `cache refresh`.  
-Rationale: Aligns with constitution Principle III, supports offline use, and gives users control over freshness/API usage trade-offs.  
+Rationale: Aligns with the requirement for offline use and user control over freshness/API usage trade-offs, as outlined in the project's core principles.  
 Alternatives considered: Hard-coded TTL (rejected—lacks flexibility); on-demand fetching without cache (rejected—breaks offline requirement and risks rate limiting).
 
 ### Observability & Metrics
 Decision: Instrument asynchronous flows with `tracing` spans (INFO level), emit structured metrics (`marketplace.cache_hits`, `marketplace.rate_limit_wait_seconds`, etc.), and expose verbose mode trace IDs for support.  
-Rationale: Meets Principle IV, makes triage feasible, and keeps observability consistent with existing repository patterns.  
+Rationale: Meets the observability requirements, makes triage feasible, and keeps observability consistent with existing repository patterns.  
 Alternatives considered: Logging only (rejected—no metrics for SC-005); external metrics dependency (rejected—adds setup burden).
 
 ### Background Refresh & Rate Limits

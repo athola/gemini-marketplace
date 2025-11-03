@@ -9,6 +9,7 @@ use gemini_marketplace::marketplace::commands::cache::{
 use gemini_marketplace::marketplace::commands::list::{execute as execute_list, ListOptions};
 use gemini_marketplace::marketplace::commands::search::{execute as execute_search, SearchOptions};
 use gemini_marketplace::marketplace::commands::sources;
+use gemini_marketplace::marketplace::commands::status::{execute as execute_status, StatusOptions};
 use gemini_marketplace::marketplace::error::MarketplaceError;
 use tracing::Level;
 
@@ -190,7 +191,7 @@ async fn main() -> ExitCode {
                 subcommand: CacheTtlCommand::Set { hours },
             } => execute_cache_ttl_set(CacheTtlSetOptions { hours }).await,
         },
-        MarketplaceCommand::Status { .. } => Ok(()),
+        MarketplaceCommand::Status { json } => execute_status(StatusOptions { json }).await,
     };
 
     match result {

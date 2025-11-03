@@ -20,7 +20,7 @@
 - [x] CHK007 Are definitions for “stale”, “fresh”, and TTL overrides clearly quantified with time units and trigger conditions? [Clarity, Spec §FR-010/FR-010c, Spec §Clarifications (Session 2025-10-09)]
 - [x] CHK008 Does the spec clearly distinguish schema validation vs semantic validation responsibilities and when each runs? [Clarity, Spec §FR-013a/FR-013c, Spec §Clarifications (Session 2025-10-11)]
 - [x] CHK009 Are rate-limit handling expectations (countdown display, defer timing) described with measurable behaviors? [Clarity, Spec §FR-011/FR-012a, Spec §Clarifications (Session 2025-10-09)]
-- [x] CHK010 Are telemetry aggregation rules (top search terms, opt-in) defined with retention scope and caps? [Clarity, Spec §NFR-001/NFR-003, Data Model §TelemetryEvent]
+- [x] CHK010 Are telemetry aggregation rules (top search terms, opt-out default) defined with retention scope and caps? [Clarity, Spec §NFR-001/NFR-003, Data Model §TelemetryEvent]
 
 ## Requirement Consistency
 
@@ -60,7 +60,7 @@
 
 - [x] CHK027 Are configuration persistence expectations (per-user vs workspace) unambiguous across preferences, sources, and cache? [Ambiguity, Spec §FR-014a, Data Model §Preferences, Plan §Storage]
 - [x] CHK028 Is the scope boundary between CLI surface and internal HTTP API responsibilities clearly defined to prevent overlap or gaps? [Ambiguity, Spec §FR-016–FR-017, Contracts §info, Plan §Project Structure]
-- [x] CHK029 Are telemetry opt-in defaults and privacy considerations documented to avoid conflicting interpretations? [Ambiguity, Spec §NFR-001/NFR-003, Spec §Assumptions, Tasks §Phase 7]
+- [x] CHK029 Are telemetry opt-out defaults and privacy considerations documented to avoid conflicting interpretations? [Ambiguity, Spec §NFR-001/NFR-003, Spec §Assumptions, Tasks §Phase 7]
 
 ## Notes
 

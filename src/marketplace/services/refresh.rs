@@ -73,6 +73,11 @@ impl RefreshService {
         guard.len()
     }
 
+    /// Returns true when no jobs are queued.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Persist current queue state without modifying it.
     pub fn flush(&self) -> Result<()> {
         let guard = self.jobs.lock().unwrap();
@@ -112,14 +117,10 @@ fn sort_jobs(jobs: &mut VecDeque<RetryJob>) {
 mod tests {
     use super::*;
     use std::env;
-    use std::sync::{Mutex, OnceLock};
     use std::time::{Duration, SystemTime};
     use tempfile::TempDir;
 
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
+    use crate::marketplace::services::sources::tests::env_lock;
 
     fn with_temp_home() -> TempDir {
         let temp = TempDir::new().expect("temp dir");

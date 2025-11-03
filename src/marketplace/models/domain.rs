@@ -340,28 +340,18 @@ impl Default for UserPreferences {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum SearchMode {
+    #[default]
     LocalFilter,
     PreFetchFilter,
 }
 
-impl Default for SearchMode {
-    fn default() -> Self {
-        SearchMode::LocalFilter
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum OutputFormat {
+    #[default]
     Table,
     Json,
-}
-
-impl Default for OutputFormat {
-    fn default() -> Self {
-        OutputFormat::Table
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

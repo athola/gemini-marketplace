@@ -62,12 +62,12 @@
   - `enabled_sources` MUST reference existing sources during load
 
 ### TelemetryEvent
-- **Primary Identifier**: auto-increment or UUID in memory (not persisted across runs unless opted-in)
+- **Primary Identifier**: auto-increment or UUID in memory (persisted across runs unless the user opts out)
 - **Key Fields**: `event_type` (`Search`, `List`, `Show`), `timestamp`, `payload`
 - **Relationships**: Aggregated per release for SC-005; linked to `Extension` when event references a specific namespace
 - **Validation Rules**:
   - `payload` sanitized to exclude PII
-  - Persisted only when metrics opt-in enabled
+  - Persisted only when the user has not opted out of telemetry collection
 
 ## Derived Relationships & Aggregations
 

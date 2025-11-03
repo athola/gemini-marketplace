@@ -121,16 +121,12 @@ fn write_preferences(path: &Path, prefs: &UserPreferences) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use std::env;
-    use std::sync::{Mutex, OnceLock};
 
     use tempfile::TempDir;
 
     use super::*;
 
-    fn env_lock() -> &'static Mutex<()> {
-        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        LOCK.get_or_init(|| Mutex::new(()))
-    }
+    use crate::marketplace::services::sources::tests::env_lock;
 
     fn with_temp_home() -> TempDir {
         let temp = TempDir::new().expect("temp dir");
