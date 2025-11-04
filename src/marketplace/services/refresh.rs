@@ -37,7 +37,10 @@ impl RefreshService {
 
     /// Queue (or replace) a refresh job and persist the queue to disk.
     pub fn queue_refresh(&self, job: RetryJob) -> Result<()> {
-        let mut guard = self.jobs.lock().unwrap();
+        let mut guard = self
+            .jobs
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire lock: {}", e))?;
         guard.retain(|existing| existing.job_id != job.job_id);
         guard.push_back(job);
         sort_jobs(&mut guard);
@@ -46,17 +49,25 @@ impl RefreshService {
 
     /// Return all queued jobs (oldest first).
     pub fn pending_jobs(&self) -> Vec<RetryJob> {
-        let guard = self.jobs.lock().unwrap();
+        let guard = match self.jobs.lock() {
+            Ok(guard) => guard,
+            Err(poisoned_guard) => poisoned_guard.into_inner(),
+        };
         guard.iter().cloned().collect()
     }
 
     /// Drain jobs scheduled at or before the provided timestamp.
     pub fn drain_due(&self, now: SystemTime) -> Result<Vec<RetryJob>> {
-        let mut guard = self.jobs.lock().unwrap();
+        let mut guard = self
+            .jobs
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire lock: {}", e))?;
         let mut ready = Vec::new();
         while let Some(front) = guard.front() {
             if front.scheduled_for <= now {
-                ready.push(guard.pop_front().expect("front must exist"));
+                if let Some(job) = guard.pop_front() {
+                    ready.push(job);
+                }
             } else {
                 break;
             }
@@ -69,7 +80,10 @@ impl RefreshService {
 
     /// Return the number of pending jobs.
     pub fn len(&self) -> usize {
-        let guard = self.jobs.lock().unwrap();
+        let guard = match self.jobs.lock() {
+            Ok(guard) => guard,
+            Err(poisoned_guard) => poisoned_guard.into_inner(),
+        };
         guard.len()
     }
 
@@ -80,7 +94,10 @@ impl RefreshService {
 
     /// Persist current queue state without modifying it.
     pub fn flush(&self) -> Result<()> {
-        let guard = self.jobs.lock().unwrap();
+        let guard = self
+            .jobs
+            .lock()
+            .map_err(|e| anyhow::anyhow!("Failed to acquire lock: {}", e))?;
         persist_jobs(&self.path, &guard)
     }
 }
@@ -139,7 +156,7 @@ mod tests {
 
     #[test]
     fn queue_and_reload_jobs() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = env_lock().lock().expect("env lock");
         let temp = with_temp_home();
         let config = Config::new().expect("config");
         let service = RefreshService::new(&config).expect("service");
@@ -168,7 +185,7 @@ mod tests {
 
     #[test]
     fn drain_due_returns_ready_jobs() {
-        let _guard = env_lock().lock().unwrap();
+        let _guard = env_lock().lock().expect("env lock");
         let temp = with_temp_home();
         let config = Config::new().expect("config");
         let service = RefreshService::new(&config).expect("service");
