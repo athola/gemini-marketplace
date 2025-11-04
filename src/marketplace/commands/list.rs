@@ -10,6 +10,7 @@ use crate::marketplace::services::catalog::{
     default_preferences, default_sources, CatalogService, ListEntry, ListRequest, ListResponse,
 };
 use crate::marketplace::services::source_fetcher::SourceFetcher;
+use crate::marketplace::status::StatusStore;
 
 #[derive(Debug, Clone)]
 pub struct ListOptions {
@@ -38,7 +39,8 @@ pub async fn execute(opts: ListOptions) -> Result<()> {
     let prefs = default_preferences();
     let sources = default_sources();
     let fetcher = SourceFetcher::new(&config, prefs.clone())?;
-    let service = CatalogService::new(fetcher, prefs, sources);
+    let status_store = StatusStore::new(&config);
+    let service = CatalogService::new(fetcher, prefs, sources, status_store);
 
     let request = ListRequest {
         search: opts.search.as_deref(),

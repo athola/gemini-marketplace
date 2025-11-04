@@ -1,43 +1,30 @@
-# Phase 0 Research – Gemini CLI Extension Marketplace
+# Research: Gemini CLI Extension Marketplace
 
-## Runtime & Toolchain
-- **Decision**: Adopt Rust 1.82.0 with stable MSRV enforcement across the workspace.
-- **Rationale**: Aligns with constitutional dependency stewardship, guarantees async/trait
-  ergonomics required by modern crates, and matches the Gemini CLI extension ecosystem.
-- **Alternatives considered**: Staying on an older MSRV (1.74–1.79) would block `tokio`/`reqwest`
-  upgrades and risk missing bug fixes; nightly toolchains rejected to avoid stability concerns.
+## Summary
 
-## Async Networking Stack
-- **Decision**: Pair `reqwest` with `tokio` for HTTP requests and concurrency.
-- **Rationale**: Mature ecosystem, robust GitHub API support, built-in retry/backoff hooks, and
-  compatibility with structured metrics instrumentation.
-- **Alternatives considered**: `ureq` lacks async; `surf` introduces dependency sprawl; direct
-  `hyper` adds boilerplate for JSON handling without measurable benefit.
+Research focused on confirming the CLI's usability, data validation, cache design, observability, and background refresh. These areas are critical for meeting the project's requirements.
 
-## Manifest Validation Strategy
-- **Decision**: Execute schema validation on fetch via `schemars`-generated schema + `serde`,
-  then run semantic validation (semver parsing, URL checks, README extraction) when details are
-  requested.
-- **Rationale**: Matches progressive validation requirement, avoids over-fetching, and provides
-  actionable warnings aligned with user flows.
-- **Alternatives considered**: Performing full validation during fetch would slow catalog loads;
-  deferring all validation to detail views risks polluting list results with invalid entries.
+### CLI Pagination & Interaction Model
+Decision: Keep `gemini marketplace list` single-shot by default with opt-in interactive paging (`--interactive`) and explicit navigation commands.  
+Rationale: Mirrors familiar `cargo`/`git` patterns, reduces statefulness, and simplifies automation since default output stays non-interactive. Interactive mode still supports long sessions without re-running the command.  
+Alternatives considered: Always-interactive pager (rejected—breaks piping/automation); environment-based pager integration only (rejected—less discoverable for CLI users).
 
-## Caching & Persistence
-- **Decision**: Store cache artifacts under `$GEMINI_CONFIG/extensions/marketplace/`, using the
-  `directories` crate for cross-platform paths and JSON metadata describing TTL, source hashes,
-  and queue state.
-- **Rationale**: Satisfies constitution constraint for cache location, keeps filesystem logic
-  centralized, supports deterministic offline behaviour, and integrates with background refresh.
-- **Alternatives considered**: `dirs` crate deprecated; manual path assembly risks diverging
-  across platforms; database-backed cache (e.g., SQLite) adds complexity without clear value.
+### Manifest Validation Strategy
+Decision: Apply schema validation (`schemars`) on fetch, then run semantic checks (semver, URLs, capabilities) lazily when users request details.  
+Rationale: Balances responsiveness with correctness; avoids blocking list views on expensive checks while guaranteeing detail view accuracy.  
+Alternatives considered: Full validation on fetch (rejected—slows pagination); minimal validation only (rejected—risks surfacing broken data).
 
-## Observability & Metrics
-- **Decision**: Emit human-readable logs via `tracing` + `tracing-subscriber`, expose structured
-  JSON logs when `--json` enabled, and collect metrics (cache hits/misses, rate-limit waits,
-  retry queue depth, top search terms for SC-005) through a lightweight in-process registry
-  surfaced by CLI/API endpoints.
-- **Rationale**: Provides consistent diagnostics across commands, supports countdown UX, and
-  keeps instrumentation overhead minimal.
-- **Alternatives considered**: Relying solely on stdout logging would complicate filtering;
-  integrating Prometheus exporters is overkill for local CLI use cases.
+### Cache TTL & Refresh Mechanism
+Decision: Persist TTL metadata alongside cached payloads, defaulting to 24 hours, allow user overrides via `cache ttl set`, and trigger background refresh when TTL expires or user runs `cache refresh`.  
+Rationale: Aligns with the requirement for offline use and user control over freshness/API usage trade-offs, as outlined in the project's core principles.  
+Alternatives considered: Hard-coded TTL (rejected—lacks flexibility); on-demand fetching without cache (rejected—breaks offline requirement and risks rate limiting).
+
+### Observability & Metrics
+Decision: Instrument asynchronous flows with `tracing` spans (INFO level), emit structured metrics (`marketplace.cache_hits`, `marketplace.rate_limit_wait_seconds`, etc.), and expose verbose mode trace IDs for support.  
+Rationale: Meets the observability requirements, makes triage feasible, and keeps observability consistent with existing repository patterns.  
+Alternatives considered: Logging only (rejected—no metrics for SC-005); external metrics dependency (rejected—adds setup burden).
+
+### Background Refresh & Rate Limits
+Decision: Queue refresh jobs when API errors or rate limits occur, wait for reset windows before retrying, and continue serving cached data with visible countdowns.  
+Rationale: Honours GitHub rate limits, prevents user downtime, and integrates with existing service abstractions.  
+Alternatives considered: Immediate retries (rejected—would thrash rate limits); silent failures (rejected—violates user transparency goals).

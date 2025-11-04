@@ -51,6 +51,12 @@ pub struct CacheSnapshot {
     pub extensions: Vec<Extension>,
 }
 
+impl CacheSnapshot {
+    pub fn is_stale(&self, now: SystemTime) -> bool {
+        self.entry.is_stale(now)
+    }
+}
+
 impl CacheStore {
     pub fn new(config: &Config) -> Result<Self> {
         let root = config.cache_dir().to_path_buf();

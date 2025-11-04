@@ -1,0 +1,5 @@
+description = "Run the Gemini Marketplace CLI from within the Gemini chat session."
+prompt = """
+# If no arguments are provided, show the CLI help. Otherwise pass the arguments through verbatim.
+!{ if [ -z "{{args}}" ]; then gemini-marketplace --help; else gemini-marketplace {{args}}; fi }
+"""

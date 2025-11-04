@@ -3,6 +3,12 @@
 .grok
 target
 **/*.rs.bk
+.idea/
+debug/
+release/
+*.log
+.env*
+*.prof*
 .specify/cache
 .specify/tmp
 .specify

@@ -5,11 +5,10 @@ use anyhow::Result;
 use serde::Serialize;
 
 use crate::marketplace::error::MarketplaceError;
-use crate::marketplace::models::domain::{
-    Extension, InstallStatus, MarketplaceSource, OutputFormat, SearchMode,
-};
+use crate::marketplace::models::domain::{Extension, InstallStatus, MarketplaceSource};
 use crate::marketplace::services::preferences::PreferencesService;
 use crate::marketplace::services::source_fetcher::SourceFetcher;
+use crate::marketplace::status::StatusStore;
 
 const DEFAULT_PAGE_SIZE: usize = 25;
 
@@ -17,6 +16,7 @@ pub struct CatalogService {
     fetcher: SourceFetcher,
     prefs: PreferencesService,
     sources: Vec<MarketplaceSource>,
+    status_store: StatusStore,
 }
 
 #[derive(Debug, Default)]
@@ -58,11 +58,13 @@ impl CatalogService {
         fetcher: SourceFetcher,
         prefs: PreferencesService,
         sources: Vec<MarketplaceSource>,
+        status_store: StatusStore,
     ) -> Self {
         Self {
             fetcher,
             prefs,
             sources,
+            status_store,
         }
     }
 
@@ -91,19 +93,12 @@ impl CatalogService {
 
         let filtered = filter_entries(entries, request);
         let total_entries = filtered.len();
-        let page_size = request
-            .page_size
-            .unwrap_or(DEFAULT_PAGE_SIZE)
-            .max(1);
+        let page_size = request.page_size.unwrap_or(DEFAULT_PAGE_SIZE).max(1);
         let total_pages = ((total_entries + page_size - 1) / page_size).max(1);
         let requested_page = request.page.unwrap_or(1).max(1);
         let page = requested_page.min(total_pages);
         let start = page_size.saturating_mul(page.saturating_sub(1));
-        let paginated: Vec<ListEntry> = filtered
-            .into_iter()
-            .skip(start)
-            .take(page_size)
-            .collect();
+        let paginated: Vec<ListEntry> = filtered.into_iter().skip(start).take(page_size).collect();
         Ok(ListResponse {
             entries: paginated,
             warnings,
@@ -121,7 +116,10 @@ impl CatalogService {
         _prefetch_filter: bool,
     ) -> std::result::Result<FetchResult, MarketplaceError> {
         match self.fetcher.sync_source(source).await {
-            Ok(list) => Ok(FetchResult::Fresh(list)),
+            Ok(list) => {
+                let _ = self.status_store.clear_error(&source.slug);
+                Ok(FetchResult::Fresh(list))
+            }
             Err(err) => match err {
                 MarketplaceError::RateLimited {
                     source_slug,
@@ -131,6 +129,9 @@ impl CatalogService {
                     if let Some(ts) = &reset_at {
                         warning.push_str(&format!(" (resets at {ts})"));
                     }
+                    let _ = self
+                        .status_store
+                        .record_error(source_slug.clone(), warning.clone());
                     match self.fetcher.cached_extensions(&source.slug) {
                         Ok(Some(data)) => Ok(FetchResult::Cached {
                             extensions: data,
@@ -158,6 +159,9 @@ impl CatalogService {
                     if let Some(url_str) = warning_url.as_ref() {
                         warning.push_str(&format!(" ({url_str})"));
                     }
+                    let _ = self
+                        .status_store
+                        .record_error(source.slug.clone(), warning.clone());
                     match self.fetcher.cached_extensions(&source.slug) {
                         Ok(Some(data)) => Ok(FetchResult::Cached {
                             extensions: data,
@@ -167,7 +171,12 @@ impl CatalogService {
                         Err(cache_err) => Err(cache_err),
                     }
                 }
-                other => Err(other),
+                other => {
+                    let _ = self
+                        .status_store
+                        .record_error(source.slug.clone(), other.to_string());
+                    Err(other)
+                }
             },
         }
     }
@@ -249,12 +258,7 @@ enum FetchResult {
 }
 
 pub fn default_preferences() -> PreferencesService {
-    PreferencesService::new(crate::marketplace::models::domain::UserPreferences {
-        cache_ttl_hours: 24,
-        auto_refresh_on_launch: false,
-        search_mode: SearchMode::LocalFilter,
-        output_format: OutputFormat::Table,
-    })
+    PreferencesService::new(crate::marketplace::models::domain::UserPreferences::default())
 }
 
 pub fn default_sources() -> Vec<MarketplaceSource> {
@@ -288,7 +292,6 @@ mod tests {
     };
     use crate::marketplace::services::preferences::PreferencesService;
     use crate::marketplace::services::source_fetcher::SourceFetcher;
-    use crate::marketplace::services::sources::tests::env_lock;
 
     fn sample_extension(source: &str, slug: &str) -> Extension {
         Extension::new(
@@ -325,10 +328,10 @@ mod tests {
 
     #[tokio::test]
     async fn list_returns_cached_entries_on_rate_limit() {
-        let _guard = env_lock().lock().unwrap();
         let temp = TempDir::new().expect("temp dir");
-        let home = temp.path().to_path_buf();
-        std::env::set_var("GEMINI_MARKETPLACE_HOME", &home);
+        let base = temp.path().to_path_buf();
+        let config = Config::from_base_path(base);
+        config.ensure_dirs().expect("dirs");
 
         let source_router = Router::new().route("/catalog.json", get(rate_limited));
         let catalog_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
@@ -338,9 +341,6 @@ mod tests {
                 .await
                 .expect("source server");
         });
-
-        let config = Config::new().expect("config");
-        config.ensure_dirs().expect("dirs");
 
         let prefs = PreferencesService::new(UserPreferences {
             cache_ttl_hours: 1,
@@ -375,7 +375,8 @@ mod tests {
             true,
             1,
         );
-        let catalog = CatalogService::new(fetcher, prefs, vec![source]);
+        let status_store = StatusStore::new(&config);
+        let catalog = CatalogService::new(fetcher, prefs, vec![source], status_store);
         let response = catalog
             .list(&ListRequest {
                 search: None,
@@ -395,7 +396,5 @@ mod tests {
             .warnings
             .iter()
             .any(|warning| warning.contains("rate limited")));
-
-        std::env::remove_var("GEMINI_MARKETPLACE_HOME");
     }
 }

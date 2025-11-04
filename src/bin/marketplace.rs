@@ -9,7 +9,9 @@ use gemini_marketplace::marketplace::commands::cache::{
 use gemini_marketplace::marketplace::commands::list::{execute as execute_list, ListOptions};
 use gemini_marketplace::marketplace::commands::search::{execute as execute_search, SearchOptions};
 use gemini_marketplace::marketplace::commands::sources;
+use gemini_marketplace::marketplace::commands::status::{execute as execute_status, StatusOptions};
 use gemini_marketplace::marketplace::error::MarketplaceError;
+use tracing::Level;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -127,7 +129,7 @@ enum CacheTtlCommand {
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let _ = tracing_subscriber::fmt::try_init();
+    init_observability();
     let cli = MarketplaceCli::parse();
     let result = match cli.command {
         MarketplaceCommand::List {
@@ -189,7 +191,7 @@ async fn main() -> ExitCode {
                 subcommand: CacheTtlCommand::Set { hours },
             } => execute_cache_ttl_set(CacheTtlSetOptions { hours }).await,
         },
-        MarketplaceCommand::Status { .. } => Ok(()),
+        MarketplaceCommand::Status { json } => execute_status(StatusOptions { json }).await,
     };
 
     match result {
@@ -202,6 +204,37 @@ async fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn init_observability() {
+    let level = std::env::var("GEMINI_MARKETPLACE_LOG")
+        .or_else(|_| std::env::var("RUST_LOG"))
+        .ok()
+        .and_then(|value| value.parse::<Level>().ok())
+        .unwrap_or(Level::INFO);
+    let format =
+        std::env::var("GEMINI_MARKETPLACE_LOG_FORMAT").unwrap_or_else(|_| "text".to_string());
+    let json_requested = format.eq_ignore_ascii_case("json");
+
+    let init_result = tracing_subscriber::fmt()
+        .with_max_level(level)
+        .with_target(true)
+        .with_level(true)
+        .compact()
+        .try_init();
+
+    if init_result.is_err() {
+        eprintln!("warning: tracing subscriber already initialised");
+    }
+
+    if json_requested {
+        tracing::warn!(
+            target: "marketplace::init",
+            "JSON log format requested but not available in this build; falling back to compact text"
+        );
+    }
+
+    tracing::info!(target: "marketplace::init", level = ?level, "Gemini marketplace CLI starting");
 }
 
 fn report_marketplace_error(error: MarketplaceError) {

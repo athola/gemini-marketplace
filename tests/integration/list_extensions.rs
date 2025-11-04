@@ -14,6 +14,7 @@ use gemini_marketplace::marketplace::models::domain::{MarketplaceSource, OutputF
 use gemini_marketplace::marketplace::services::catalog::{CatalogService, ListRequest};
 use gemini_marketplace::marketplace::services::preferences::PreferencesService;
 use gemini_marketplace::marketplace::services::source_fetcher::SourceFetcher;
+use gemini_marketplace::marketplace::status::StatusStore;
 
 async fn spawn(app: Router) -> anyhow::Result<(SocketAddr, JoinHandle<()>)> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
@@ -107,7 +108,8 @@ async fn catalog_service_lists_and_filters_extensions() -> anyhow::Result<()> {
     let preferences = prefs();
     let fetcher = SourceFetcher::new(&config, preferences.clone())?;
     let sources = vec![source(Url::parse(&format!("{base_url}/index.json"))?)];
-    let service = CatalogService::new(fetcher, preferences, sources);
+    let status_store = StatusStore::new(&config);
+    let service = CatalogService::new(fetcher, preferences, sources, status_store);
 
     let response = service
         .list(&ListRequest {
@@ -222,7 +224,8 @@ async fn catalog_service_returns_cached_entries_on_network_failure() -> anyhow::
     let preferences = prefs();
     let fetcher = SourceFetcher::new(&config, preferences.clone())?;
     let sources = vec![source(Url::parse(&format!("{base_url}/index.json"))?)];
-    let service = CatalogService::new(fetcher, preferences, sources);
+    let status_store = StatusStore::new(&config);
+    let service = CatalogService::new(fetcher, preferences, sources, status_store);
 
     // Warm cache
     let response = service

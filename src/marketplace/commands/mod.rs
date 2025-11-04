@@ -6,3 +6,4 @@ pub mod refresh;
 pub mod search;
 pub mod show;
 pub mod sources;
+pub mod status;
