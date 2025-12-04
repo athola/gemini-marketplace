@@ -1,0 +1,11 @@
+[package]
+name = "marketplace-mcp-cli"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+marketplace-mcp-server = { path = "../marketplace-mcp-server" }
+serde = { workspace = true }
+serde_json = { workspace = true }

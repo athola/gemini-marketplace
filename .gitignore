@@ -12,5 +12,8 @@ release/
 .specify/cache
 .specify/tmp
 .specify
+dist/
+.npm-cache/
 *.txt
 AGENTS.md
+server.pid
