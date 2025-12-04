@@ -130,7 +130,7 @@ pub fn parse_table_rows(stdout: &str) -> Vec<Vec<String>> {
         .collect()
 }
 
-/// A convenience constructor that mirrors the legacy helper for quick calls.
+/// Convenience function to run the marketplace CLI with the given arguments.
 pub fn run_marketplace(args: &[&str]) -> CliOutput {
     MarketplaceCommand::new().args(args.iter().copied()).run()
 }

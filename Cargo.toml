@@ -17,7 +17,7 @@ directories = "6.0"
 humantime = "2.3"
 humantime-serde = "1.1"
 indicatif = { version = "0.18" }
-reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "rustls-tls", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "native-tls", "stream"] }
 schemars = { version = "1.0", features = ["derive", "chrono04"] }
 semver = { version = "1.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }

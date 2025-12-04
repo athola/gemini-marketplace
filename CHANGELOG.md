@@ -10,6 +10,4 @@ All notable changes to this project will be documented in this file. The format 
 
 ### Fixed
 - Telemetry warnings and redundant closures flagged by `cargo clippy`.
-
-### Known Issues
-- `make local-publish` still requires write access to `$GEMINI_CONFIG`; see README guidance when running in restricted environments.
+- Duplicate getrandom dependencies: Switched from rustls-tls to native-tls in reqwest, eliminating the getrandom version conflict between ring (v0.2.16) and tempfile (v0.3.4).

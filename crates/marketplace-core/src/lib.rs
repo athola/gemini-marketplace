@@ -8,7 +8,7 @@
 //!
 //! See the top-level `README.md` and `CHANGELOG.md` for stability guarantees across releases.
 
-/// CLI shims that are exported for integration tests and downstream tooling.
+/// CLI wrappers exported for integration tests and downstream tooling.
 pub mod cli;
 /// Core services, config, and domain models for the marketplace.
 pub mod marketplace;

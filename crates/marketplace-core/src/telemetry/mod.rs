@@ -103,8 +103,18 @@ impl Telemetry {
     }
 
     pub fn snapshot(&self) -> TelemetrySnapshot {
-        let guard = self.inner.counters.lock().unwrap();
-        guard.snapshot()
+        if let Ok(guard) = self.inner.counters.lock() {
+            guard.snapshot()
+        } else {
+            // Mutex is poisoned - return default snapshot
+            TelemetrySnapshot {
+                cache_hits: 0,
+                cache_misses: 0,
+                rate_limit_waits: 0,
+                refresh_queue_depth: 0,
+                search_terms: BTreeMap::new(),
+            }
+        }
     }
 
     fn update_counters<F>(&self, mut f: F)

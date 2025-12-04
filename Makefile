@@ -2,10 +2,6 @@
 EXTENSION_NAME := gemini-marketplace
 EXTENSION_BASE := $(if $(GEMINI_CONFIG),$(GEMINI_CONFIG),$(HOME)/.gemini)
 EXTENSION_INSTALL_DIR := $(EXTENSION_BASE)/extensions/$(EXTENSION_NAME)
-# Some historical installations used the shorter "marketplace" directory name. Publish to both
-# so legacy paths still receive the manifest and Gemini CLI stops warning about missing config.
-EXTENSION_LEGACY_DIR := $(EXTENSION_BASE)/extensions/marketplace
-EXTENSION_DIRS := $(EXTENSION_INSTALL_DIR) $(EXTENSION_LEGACY_DIR)
 DIST_DIR := dist
 EXTENSION_ARCHIVE := $(DIST_DIR)/gemini-marketplace-extension.tar.gz
 DEMO_HOME := $(shell mktemp -d 2>/dev/null || mktemp -d -t gemini-marketplace-demo)
@@ -82,23 +78,19 @@ local-publish: fmt lint test
 	else \
 		printf "warning: cargo install failed (often due to permission issues); continuing with extension publish.\\n"; \
 	fi
-	@mkdir -p $(EXTENSION_DIRS); \
-	for dir in $(EXTENSION_DIRS); do \
-		if [ -z "$$dir" ]; then continue; fi; \
-		echo "Publishing extension manifest + commands to $$dir"; \
-		if [ -d "$$dir" ]; then \
-			if rm -rf "$$dir"; then \
-				printf "Removed previous install at $$dir.\\n"; \
-			else \
-				printf "\\nerror: unable to delete $$dir. Ensure you own the directory or set GEMINI_CONFIG to an alternate path (see README).\\n"; \
-				exit 1; \
-			fi; \
+	@echo "Publishing extension manifest + commands to $(EXTENSION_INSTALL_DIR)"; \
+	if [ -d "$(EXTENSION_INSTALL_DIR)" ]; then \
+		if rm -rf "$(EXTENSION_INSTALL_DIR)"; then \
+			printf "Removed previous install at $(EXTENSION_INSTALL_DIR).\\n"; \
+		else \
+			printf "\\nerror: unable to delete $(EXTENSION_INSTALL_DIR). Ensure you own the directory or set GEMINI_CONFIG to an alternate path (see README).\\n"; \
+			exit 1; \
 		fi; \
-		mkdir -p "$$dir"; \
-		install -m 0644 gemini-extension.json "$$dir/gemini-extension.json"; \
-		cp -R commands "$$dir/"; \
-		printf '{\\n  "source": "%s",\\n  "type": "local"\\n}\\n' "$$dir" > "$$dir/.gemini-extension-install.json"; \
-	done
+	fi; \
+	mkdir -p "$(EXTENSION_INSTALL_DIR)"; \
+	install -m 0644 gemini-extension.json "$(EXTENSION_INSTALL_DIR)/gemini-extension.json"; \
+	cp -R commands "$(EXTENSION_INSTALL_DIR)/"; \
+	printf '{\\n  "source": "%s",\\n  "type": "local"\\n}\\n' "$(EXTENSION_INSTALL_DIR)" > "$(EXTENSION_INSTALL_DIR)/.gemini-extension-install.json"
 	@echo "Local publish complete. Run 'gemini extensions list' to confirm the update."
 
 extension-archive: fmt lint test
