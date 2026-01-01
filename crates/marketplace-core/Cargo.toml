@@ -1,0 +1,44 @@
+[package]
+name = "gemini-marketplace"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+
+[lib]
+name = "gemini_marketplace"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gemini-marketplace"
+path = "src/bin/marketplace.rs"
+
+[features]
+default = []
+progress-ui = ["indicatif"]
+
+[dependencies]
+anyhow = { workspace = true }
+directories = { workspace = true }
+indicatif = { workspace = true, optional = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+semver = { workspace = true }
+url = { workspace = true }
+humantime = { workspace = true }
+humantime-serde = { workspace = true }
+clap = { workspace = true }
+sha2 = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+insta = { workspace = true }
+predicates = { workspace = true }
+tempfile = { workspace = true }
+axum = { workspace = true }

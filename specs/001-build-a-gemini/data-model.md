@@ -1,85 +1,78 @@
-# Data Model: Gemini CLI Extension Marketplace
+# Data Model – Gemini CLI Extension Marketplace
 
 ## Entities
 
 ### Extension
-- **Primary Identifier**: `namespace` (`<source>/<extension-name>`), stored as `String`
-- **Key Fields**: `name`, `version`, `description`, `repository_url`, `categories: Vec<String>`, `compatibility: Vec<String>`, `install_status`, `warnings: Vec<String>`, `cache_freshness`
-- **Relationships**: Belongs to exactly one `MarketplaceSource`; may reference zero or more `TelemetryEvent` records (search interactions)
-- **Validation Rules**:
-  - `version` MUST parse via `semver::Version`
-  - `repository_url` MUST be HTTPS
-  - `categories` limited to 10 entries, each ≤32 chars
-  - `install_status` is enum: `Installed`, `NotInstalled`, `Unknown`
-- **State Transitions**:
-  - `NotInstalled` → `Installed` after registry/file-system detection succeeds
-  - `Installed` → `NotInstalled` if both registry and file-system checks fail
-  - `Unknown` only during initialization before detection runs
+
+| Field | Type | Description | Validation |
+| --- | --- | --- | --- |
+| `namespace` | string | `source-alias/extension-name` identifier. | Must be lowercase, unique, and match `[a-z0-9-]+/[a-z0-9-]+`. |
+| `name` | string | Human-friendly name from the manifest. | 1–80 characters. |
+| `description` | string | A summary that is surfaced in the list and detail views. | ≤ 512 characters; sanitized markdown. |
+| `version` | semver string | The declared extension version. | Must be a valid semver and match the manifest checksum tuple. |
+| `author` | string | The publisher label. | Required. |
+| `categories` | array<string> | Tags used for filtering. | Each entry must be ≤ 32 characters. |
+| `repository_url` | URL | The Git/GitHub location for manual installation. | HTTPS required. |
+| `readme` | markdown blob | An optional README snippet. | Rendered on the `show` command. |
+| `install_status` | enum | The derived installation status. | `installed`, `not_installed`, or `unknown`. |
+| `source_alias` | string | The alias chosen during `sources add`. | References `MarketplaceSource.alias`. |
+| `warnings` | array<string> | Validation or fetch warnings. | Each entry must be ≤ 120 characters. |
+| `cache_freshness` | ISO timestamp | The last refresh timestamp. | Required. |
 
 ### MarketplaceSource
-- **Primary Identifier**: `name` (`String`), unique per user profile
-- **Key Fields**: `url`, `source_type` (`GitHubRepo`, `GitUrl`, `LocalPath`), `enabled`, `last_synced_at`, `recursion_limit`
-- **Relationships**: Owns many `Extension` records; tracked by `Preferences`
-- **Validation Rules**:
-  - `url` MUST be valid URL or absolute path (for `LocalPath`)
-  - `recursion_limit` default 5, range 1–10
-- **State Transitions**:
-  - `enabled` toggled via CLI `sources add/remove`
-  - `last_synced_at` updated after successful fetch
 
-### CacheEntry
-- **Primary Identifier**: Composite (`marketplace_source`, `payload_type`)
-- **Key Fields**: `payload_hash`, `stored_at`, `expires_at`, `serialization_format`
-- **Relationships**: Linked to `MarketplaceSource` for data provenance
-- **Validation Rules**:
-  - `expires_at` = `stored_at` + TTL (24h default or user override)
-  - `payload_hash` verified against manifest checksums
-- **State Transitions**:
-  - Fresh → Stale when `now >= expires_at`
-  - Stale → Refreshing when queued for background refresh
-  - Refreshing → Fresh on successful fetch; remains Stale on failure
+| Field | Type | Description | Validation |
+| --- | --- | --- | --- |
+| `alias` | string | A user-facing identifier. | Unique, `[a-z0-9-]+`. |
+| `url` | URL | The Git repo or catalog root. | HTTPS or SSH git URL. |
+| `type` | enum | The source type for the ingestion pipeline. | `github_repo`, `git_repo`, or `local_dir`. |
+| `recursion_depth` | int | The maximum directory depth for manifest discovery. | Default 5; 1–10. |
+| `enabled` | bool | Whether the source participates in refresh/list. | Default true. |
+| `last_sync_at` | ISO timestamp | The last successful refresh per source. | Optional. |
+| `error_state` | object | Stores the last failure reason and retry ETA. | Optional. |
 
-### RefreshJob
-- **Primary Identifier**: `job_id` (`Uuid`)
-- **Key Fields**: `source_name`, `created_at`, `next_attempt_at`, `status`, `error_context`
-- **Relationships**: References `MarketplaceSource` and optionally `TelemetryEvent` (if triggered by search)
-- **Validation Rules**:
-  - `status` enum: `Queued`, `Running`, `Deferred`, `Completed`, `Failed`
-  - `next_attempt_at` MUST be ≥ `created_at`
-- **State Transitions**:
-  - `Queued` → `Running` when worker picks up job
-  - `Running` → `Completed` on success
-  - `Running` → `Deferred` when rate limited; `next_attempt_at` set to API reset time
-  - `Deferred` → `Running` when window opens
-  - Any state → `Failed` after retry budget exhausted (surface warning)
+### ManifestCacheEntry
 
-### Preferences
-- **Primary Identifier**: single record per user (`preferences.json`)
-- **Key Fields**: `default_ttl_hours`, `enabled_sources: Vec<String>`, `metrics_opt_in`
-- **Relationships**: Tracks enabled `MarketplaceSource` names and influences caching rules
-- **Validation Rules**:
-  - `default_ttl_hours` range 1–168
-  - `enabled_sources` MUST reference existing sources during load
+| Field | Type | Description | Validation |
+| --- | --- | --- | --- |
+| `namespace` | string | A foreign key to `Extension.namespace`. | Required. |
+| `stored_at` | ISO timestamp | When the manifest was cached. | Required. |
+| `ttl_hours` | int | The TTL chosen by the user. | Default 24; 1–168. |
+| `checksum` | sha256 | The digest of the manifest payload. | Required for trust. |
+| `schema_valid` | bool | The result of the schema validation. | Required. |
+| `semantic_valid` | bool | The result of the semantic validation. | Required. |
+| `metadata` | json | The raw manifest blob for detail rendering. | |
 
-### TelemetryEvent
-- **Primary Identifier**: auto-increment or UUID in memory (persisted across runs unless the user opts out)
-- **Key Fields**: `event_type` (`Search`, `List`, `Show`), `timestamp`, `payload`
-- **Relationships**: Aggregated per release for SC-005; linked to `Extension` when event references a specific namespace
-- **Validation Rules**:
-  - `payload` sanitized to exclude PII
-  - Persisted only when the user has not opted out of telemetry collection
+### TelemetryRecord
 
-## Derived Relationships & Aggregations
+| Field | Type | Description | Validation |
+| --- | --- | --- | --- |
+| `timestamp` | ISO timestamp | When the event was emitted. | Required. |
+| `event_type` | enum | Observability events. | `cache_hit`, `cache_miss`, `rate_limit_wait`, `search`, `source_add`, or `source_remove`. |
+| `attributes` | map | Structured metrics (e.g., `duration_ms`, `source_alias`, `keyword`). | Sensitive data is redacted. |
 
-- `MarketplaceSource` 1—N `Extension`
-- `MarketplaceSource` 1—N `CacheEntry`
-- `RefreshJob` triggered per `MarketplaceSource` (optional per `Extension` detail view)
-- Telemetry aggregation produces `top_search_terms` dataset each release cycle, bounded to 50 entries
+## Relationships
 
-## Data Lifecycle
+-   `MarketplaceSource.alias` to `Extension.source_alias` is a one-to-many relationship. Removing a source hides its dependent extensions.
+-   `Extension.namespace` to `ManifestCacheEntry.namespace` is a one-to-one relationship. The cache entry holds the raw metadata for the rendered extension.
+-   `TelemetryRecord` references `source_alias` and `namespace` via attributes but does not hold strong foreign key constraints.
 
-1. Source fetch populates `CacheEntry` (Fresh) and updates `Extension` records.
-2. TTL expiration marks entries Stale; background refresh enqueues `RefreshJob`.
-3. Refresh success updates cache and `last_synced_at`; failure keeps stale data with warnings.
-4. Preferences updates propagate immediate effect on TTL defaults and enabled sources.
-5. Telemetry counters reset each release cycle after success criteria evaluation.
+## State Transitions
+
+1.  **Source Lifecycle**:
+    -   `unregistered` → `registered`: When a user runs `sources add`.
+    -   `registered` → `syncing`: During fetch and validation.
+    -   `syncing` → `healthy` or `degraded`: On success or failure, respectively.
+2.  **Extension Lifecycle**:
+    -   `discovered` → `validated`: After semantic checks pass.
+    -   `validated` → `stale`: When the TTL expires.
+    -   `stale` → `refreshed`: After a background or manual refresh.
+3.  **ManifestCacheEntry**:
+    -   On a checksum mismatch or validation failure, the entry transitions to `invalid` and is removed from the list.
+
+## Validation & Rules
+
+-   Namespaces are immutable once an extension is cached.
+-   The recursion depth guard prevents runaway scans.
+-   Cache entries that are older than their TTL must not influence derived telemetry without a `stale` flag.
+-   Telemetry events omit PII and aggregate counts to respect the opt-out policy.

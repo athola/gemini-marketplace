@@ -8,59 +8,59 @@
 
 ## Requirement Completeness
 
-- [x] CHK001 Are CLI contract requirements documented for every subcommand (`list`, `show`, `search`, `sources`, `cache`, `status`) including expected inputs/outputs? [Completeness, Spec §FR-006–FR-017, Plan §Summary]
-- [x] CHK002 Are requirements defined for manifest discovery across single repos and monorepos, including recursion limits and namespacing rules? [Completeness, Spec §FR-013a/FR-013e, Data Model §MarketplaceSource]
-- [x] CHK003 Do requirements cover both cached and live data flows, including offline browsing expectations? [Completeness, Spec §FR-001b/FR-015, Spec §Edge Cases 1 & 6]
-- [x] CHK004 Are success criteria mapped to every primary user story so each increment is independently testable? [Completeness, Spec §User Stories, Plan §Summary]
-- [x] CHK005 Are observability deliverables (metrics, logging, status endpoint) fully enumerated across CLI and API layers? [Completeness, Spec §NFR-001, Contracts §/status, Plan §Technical Context]
+- [x] **CHK001**: Are CLI contract requirements documented for every subcommand?
+- [x] **CHK002**: Are requirements defined for manifest discovery across single repos and monorepos?
+- [x] **CHK003**: Do the requirements cover both cached and live data flows?
+- [x] **CHK004**: Are success criteria mapped to every primary user story?
+- [x] **CHK005**: Are observability deliverables fully enumerated across the CLI and API layers?
 
 ## Requirement Clarity
 
-- [x] CHK006 Is pagination behavior (default size, interactive mode, navigation commands) specified without ambiguity? [Clarity, Spec §FR-001a/FR-001b]
-- [x] CHK007 Are definitions for “stale”, “fresh”, and TTL overrides clearly quantified with time units and trigger conditions? [Clarity, Spec §FR-010/FR-010c, Spec §Clarifications (Session 2025-10-09)]
-- [x] CHK008 Does the spec clearly distinguish schema validation vs semantic validation responsibilities and when each runs? [Clarity, Spec §FR-013a/FR-013c, Spec §Clarifications (Session 2025-10-11)]
-- [x] CHK009 Are rate-limit handling expectations (countdown display, defer timing) described with measurable behaviors? [Clarity, Spec §FR-011/FR-012a, Spec §Clarifications (Session 2025-10-09)]
-- [x] CHK010 Are telemetry aggregation rules (top search terms, opt-out default) defined with retention scope and caps? [Clarity, Spec §NFR-001/NFR-003, Data Model §TelemetryEvent]
+- [x] **CHK006**: Is pagination behavior specified without ambiguity?
+- [x] **CHK007**: Are the definitions for "stale", "fresh", and TTL overrides clearly quantified?
+- [x] **CHK008**: Does the spec clearly distinguish between schema validation and semantic validation?
+- [x] **CHK009**: Are rate-limit handling expectations described with measurable behaviors?
+- [x] **CHK010**: Are telemetry aggregation rules defined with retention scope and caps?
 
 ## Requirement Consistency
 
-- [x] CHK011 Do CLI namespacing rules for extensions match entity definitions and API contract fields? [Consistency, Spec §FR-002a, Data Model §Extension, Contracts §ExtensionSummary.namespace]
-- [x] CHK012 Are cache TTL settings consistent between CLI commands, preferences storage, and API endpoints? [Consistency, Spec §FR-010a/FR-014a, Contracts §UpdateTtlRequest, Data Model §Preferences]
-- [x] CHK013 Are observability metrics named identically across spec, plan, and quickstart documentation? [Consistency, Spec §NFR-001, Plan §Technical Context, Quickstart §Troubleshooting]
-- [x] CHK014 Do background refresh behaviors promised in spec align with tasks/plan expectations for job queue processing? [Consistency, Spec §Edge Cases 2 & 6, Plan §Technical Context, Tasks §Phase 6]
+- [x] **CHK011**: Do the CLI namespacing rules for extensions match the entity definitions and API contract fields?
+- [x] **CHK012**: Are the cache TTL settings consistent between the CLI commands, preferences storage, and API endpoints?
+- [x] **CHK013**: Are the observability metrics named identically across the spec, plan, and quickstart documentation?
+- [x] **CHK014**: Do the background refresh behaviors that are promised in the spec align with the tasks/plan expectations for job queue processing?
 
 ## Acceptance Criteria Quality
 
-- [x] CHK015 Are measurable success criteria provided for each critical user action (list, show, add source, refresh)? [Acceptance Criteria, Spec §SC-002–SC-006]
-- [x] CHK016 Can observability success criteria (search relevance ≥90%, status visibility) be objectively validated with telemetry definitions? [Acceptance Criteria, Spec §SC-005–SC-006, Data Model §TelemetryEvent]
-- [x] CHK017 Do user stories include independent test descriptions that map to acceptance scenarios without ambiguity? [Acceptance Criteria, Spec §User Story Acceptance Scenarios]
+- [x] **CHK015**: Are measurable success criteria provided for each critical user action?
+- [x] **CHK016**: Can observability success criteria be objectively validated with telemetry definitions?
+- [x] **CHK017**: Do user stories include independent test descriptions that map to acceptance scenarios without ambiguity?
 
 ## Scenario Coverage
 
-- [x] CHK018 Are alternate flows for private sources (credential helper reliance) captured in requirements? [Coverage, Spec §FR-013d, Spec §Clarifications (Session 2025-10-09)]
-- [x] CHK019 Are recovery/exception scenarios for rate limiting, network failures, and manifest errors fully documented? [Coverage, Spec §Edge Cases 1–4, Spec §Clarifications (Session 2025-10-09)]
-- [x] CHK020 Are offline-only usage scenarios addressed across CLI commands and API endpoints? [Coverage, Spec §Edge Cases 6, Quickstart §Browse Extensions]
+- [x] **CHK018**: Are alternate flows for private sources captured in the requirements?
+- [x] **CHK019**: Are recovery/exception scenarios for rate limiting, network failures, and manifest errors fully documented?
+- [x] **CHK020**: Are offline-only usage scenarios addressed across the CLI commands and API endpoints?
 
 ## Edge Case Coverage
 
-- [x] CHK021 Are requirements explicit about handling duplicate extension names, deleted repositories, and invalid manifests? [Edge Case, Spec §Clarifications (Session 2025-10-09), Spec §Edge Cases 3–5]
-- [x] CHK022 Is recursion depth enforcement behavior specified for monorepo scans hitting the limit? [Edge Case, Spec §Edge Cases 8, Spec §FR-013e]
+- [x] **CHK021**: Are the requirements explicit about handling duplicate extension names, deleted repositories, and invalid manifests?
+- [x] **CHK022**: Is the recursion depth enforcement behavior specified for monorepo scans that hit the limit?
 
 ## Non-Functional Requirements
 
-- [x] CHK023 Are performance thresholds (≤2s cached list, ≤5s batch fetch) captured with measurable values for all relevant flows? [Non-Functional, Spec §SC-003/SC-004, Plan §Performance Goals]
-- [x] CHK024 Are logging modes (human vs JSON) and metrics export expectations documented for environments beyond local CLI usage? [Non-Functional, Spec §NFR-001/NFR-003, Plan §Technical Context, Tasks §Phase 7]
+- [x] **CHK023**: Are performance thresholds captured with measurable values for all relevant flows?
+- [x] **CHK024**: Are logging modes and metrics export expectations documented for environments beyond local CLI usage?
 
 ## Dependencies & Assumptions
 
-- [x] CHK025 Are external dependencies (GitHub API, credential helpers, Gemini CLI registry) enumerated with availability assumptions? [Dependencies, Spec §Dependencies, Spec §Clarifications (Session 2025-10-09)]
-- [x] CHK026 Are assumptions about extension manifest standards (`gemini-extension.json`) validated or linked to authoritative guidance? [Assumption, Spec §Clarifications (Session 2025-10-09), Spec §Assumptions]
+- [x] **CHK025**: Are external dependencies enumerated with availability assumptions?
+- [x] **CHK026**: Are assumptions about extension manifest standards validated or linked to authoritative guidance?
 
 ## Ambiguities & Conflicts
 
-- [x] CHK027 Are configuration persistence expectations (per-user vs workspace) unambiguous across preferences, sources, and cache? [Ambiguity, Spec §FR-014a, Data Model §Preferences, Plan §Storage]
-- [x] CHK028 Is the scope boundary between CLI surface and internal HTTP API responsibilities clearly defined to prevent overlap or gaps? [Ambiguity, Spec §FR-016–FR-017, Contracts §info, Plan §Project Structure]
-- [x] CHK029 Are telemetry opt-out defaults and privacy considerations documented to avoid conflicting interpretations? [Ambiguity, Spec §NFR-001/NFR-003, Spec §Assumptions, Tasks §Phase 7]
+- [x] **CHK027**: Are configuration persistence expectations unambiguous across preferences, sources, and cache?
+- [x] **CHK028**: Is the scope boundary between the CLI surface and internal HTTP API responsibilities clearly defined?
+- [x] **CHK029**: Are telemetry opt-out defaults and privacy considerations documented to avoid conflicting interpretations?
 
 ## Notes
 

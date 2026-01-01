@@ -1,44 +1,37 @@
-[package]
-name = "gemini-marketplace"
-version = "0.1.0"
+[workspace]
+members = [
+    "crates/marketplace-core",
+    "crates/marketplace-mcp-cli",
+    "crates/marketplace-mcp-server",
+]
+resolver = "2"
+
+[workspace.package]
 edition = "2021"
-rust-version = "1.82"
+version = "0.1.0"
 
-[lib]
-name = "gemini_marketplace"
-path = "src/lib.rs"
-
-[[bin]]
-name = "gemini-marketplace"
-path = "src/bin/marketplace.rs"
-
-[features]
-default = []
-progress-ui = ["indicatif"]
-
-[dependencies]
+[workspace.dependencies]
 anyhow = "1.0"
+axum = { version = "0.8", features = ["macros", "json"] }
 directories = "6.0"
-indicatif = { version = "0.18", optional = true }
-reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "rustls-tls", "stream"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-schemars = { version = "1.0", features = ["derive", "chrono04"] }
-thiserror = "2.0"
-tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "time", "sync", "net", "fs"] }
-semver = { version = "1.0", features = ["serde"] }
-url = { version = ">=2.4, <2.5", features = ["serde"] }
 humantime = "2.3"
 humantime-serde = "1.1"
-clap = { version = "4.5", features = ["derive"] }
+indicatif = { version = "0.18" }
+reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "native-tls", "stream"] }
+schemars = { version = "1.0", features = ["derive", "chrono04"] }
+semver = { version = "1.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sha2 = "0.10"
+thiserror = "2.0"
+tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "time", "sync", "net", "fs"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["fmt"] }
+tracing-subscriber = { version = "0.3", features = ["fmt", "json", "env-filter"] }
+url = { version = ">=2.4, <2.5", features = ["serde"] }
 chrono = { version = "0.4", features = ["serde", "clock"] }
-
-[dev-dependencies]
-assert_cmd = "2.0"
+clap = { version = "4.5", features = ["derive"] }
+assert_cmd = { version = "2.0" }
 insta = { version = "1.43", features = ["yaml"] }
-predicates = "3.1"
-tempfile = "3.23"
-axum = { version = "0.8", features = ["macros", "json"] }
+predicates = { version = "3.1" }
+tempfile = { version = "3.23" }
+rmcp = "0.9"

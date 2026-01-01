@@ -1,30 +1,52 @@
-# Research: Gemini CLI Extension Marketplace
+# Research – Gemini CLI Extension Marketplace
 
-## Summary
+This document outlines the key decisions made during the research phase of the Gemini CLI Extension Marketplace project.
 
-Research focused on confirming the CLI's usability, data validation, cache design, observability, and background refresh. These areas are critical for meeting the project's requirements.
+## Decision: Source Alias Prompt with Slug Default
 
-### CLI Pagination & Interaction Model
-Decision: Keep `gemini marketplace list` single-shot by default with opt-in interactive paging (`--interactive`) and explicit navigation commands.  
-Rationale: Mirrors familiar `cargo`/`git` patterns, reduces statefulness, and simplifies automation since default output stays non-interactive. Interactive mode still supports long sessions without re-running the command.  
-Alternatives considered: Always-interactive pager (rejected—breaks piping/automation); environment-based pager integration only (rejected—less discoverable for CLI users).
+-   **Rationale**: Using a slug as the default alias for a source makes namespaces predictable for users and automation, while still allowing teams to override them.
+-   **Alternatives Considered**:
+    -   Auto-generating incremental IDs was rejected because they are unreadable and brittle.
+    -   Enforcing slug-only identifiers was rejected because of potential collisions between organizations with similar repository names.
 
-### Manifest Validation Strategy
-Decision: Apply schema validation (`schemars`) on fetch, then run semantic checks (semver, URLs, capabilities) lazily when users request details.  
-Rationale: Balances responsiveness with correctness; avoids blocking list views on expensive checks while guaranteeing detail view accuracy.  
-Alternatives considered: Full validation on fetch (rejected—slows pagination); minimal validation only (rejected—risks surfacing broken data).
+## Decision: Progressive Manifest Validation
 
-### Cache TTL & Refresh Mechanism
-Decision: Persist TTL metadata alongside cached payloads, defaulting to 24 hours, allow user overrides via `cache ttl set`, and trigger background refresh when TTL expires or user runs `cache refresh`.  
-Rationale: Aligns with the requirement for offline use and user control over freshness/API usage trade-offs, as outlined in the project's core principles.  
-Alternatives considered: Hard-coded TTL (rejected—lacks flexibility); on-demand fetching without cache (rejected—breaks offline requirement and risks rate limiting).
+-   **Rationale**: A fast schema screening keeps list operations responsive, while full semantic validation on the `show` command surfaces detailed diagnostics only when needed.
+-   **Alternatives Considered**:
+    -   Full validation on every fetch was rejected because it would be too expensive for thousands of manifests.
+    -   Trusting manifests without validation was rejected because it would undermine the reliability and security of the marketplace.
 
-### Observability & Metrics
-Decision: Instrument asynchronous flows with `tracing` spans (INFO level), emit structured metrics (`marketplace.cache_hits`, `marketplace.rate_limit_wait_seconds`, etc.), and expose verbose mode trace IDs for support.  
-Rationale: Meets the observability requirements, makes triage feasible, and keeps observability consistent with existing repository patterns.  
-Alternatives considered: Logging only (rejected—no metrics for SC-005); external metrics dependency (rejected—adds setup burden).
+## Decision: Lazy Loading in 500-Extension Batches
 
-### Background Refresh & Rate Limits
-Decision: Queue refresh jobs when API errors or rate limits occur, wait for reset windows before retrying, and continue serving cached data with visible countdowns.  
-Rationale: Honours GitHub rate limits, prevents user downtime, and integrates with existing service abstractions.  
-Alternatives considered: Immediate retries (rejected—would thrash rate limits); silent failures (rejected—violates user transparency goals).
+-   **Rationale**: This batch size balances memory footprint and throughput, and aligns with our performance targets. It also allows for incremental streaming to the CLI UI.
+-   **Alternatives Considered**:
+    -   Fetching the entire catalog upfront was rejected due to long startup latency and potential memory issues.
+    -   Smaller batches were rejected because they would result in too many network round trips for large catalogs.
+
+## Decision: Offline-First Cache with Configurable TTL
+
+-   **Rationale**: Users often rely on the Gemini CLI in constrained environments. A configurable TTL ensures data freshness while still allowing for offline access.
+-   **Alternatives Considered**:
+    -   No cache was rejected because the CLI would be unusable offline and would incur repeated API costs.
+    -   A fixed TTL was rejected because it would not be flexible enough for different teams.
+
+## Decision: Dual-Mode Observability
+
+-   **Rationale**: This enables both interactive troubleshooting and automated ingestion into telemetry pipelines.
+-   **Alternatives Considered**:
+    -   Human-readable logs only were rejected because they would not allow for automated monitoring.
+    -   Metrics-only was rejected because it would make local debugging more difficult.
+
+## Decision: Token & Compute Budget Logging
+
+-   **Rationale**: This complies with Constitution Principle VI, which requires that every heavy command log selective reruns, CPU/GPU minutes, and instrumentation choices so that auditors can confirm stewardship.
+-   **Alternatives Considered**:
+    -   Silent adherence was rejected because it would not provide an auditable trail.
+    -   Post-hoc summaries only were rejected because they would miss per-command evidence and increase the risk of rework.
+
+## Decision: Workspace & MCP Split
+
+-   **Rationale**: Shipping a Cargo workspace with `marketplace-core`, `marketplace-mcp-server`, and `marketplace-mcp-cli` lets Gemini consume a purpose-built MCP stdio server while developers keep a familiar CLI harness for local validation. This split enforces a single source of truth (the server) and avoids duplicating logic in other languages.
+-   **Alternatives Considered**:
+    -   A single CLI binary that conditionally runs as an MCP server was rejected because it would be harder to package separately for Gemini and would not provide a standalone test harness.
+    -   Building the MCP server in Node.js was rejected because it would duplicate business logic in another stack and make it harder to maintain parity with the Rust core.

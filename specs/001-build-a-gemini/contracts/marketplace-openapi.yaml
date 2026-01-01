@@ -1,0 +1,178 @@
+openapi: 3.1.0
+info:
+  title: Gemini CLI Marketplace Service
+  version: 0.1.0
+  description: |
+    Internal service contract that the Gemini CLI extension relies on for sourcing
+    extension metadata, managing custom sources, and refreshing caches.
+servers:
+  - url: https://marketplace.internal.gemini
+paths:
+  /extensions:
+    get:
+      summary: List extensions with optional filters
+      parameters:
+        - in: query
+          name: source
+          schema: { type: string }
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 500, minimum: 50, maximum: 500 }
+        - in: query
+          name: page_token
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated list of extensions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Extension'
+                  next_page_token:
+                    type: string
+                  cache_freshness:
+                    type: string
+                    format: date-time
+  /extensions/{namespace}:
+    get:
+      summary: Retrieve detailed manifest for a namespaced extension
+      parameters:
+        - in: path
+          name: namespace
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9-]+/[a-z0-9-]+$' }
+      responses:
+        '200':
+          description: Extension detail view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtensionDetail'
+        '404':
+          description: Extension not found or fails validation
+  /sources:
+    get:
+      summary: List configured marketplace sources
+      responses:
+        '200':
+          description: Current sources
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Source' }
+    post:
+      summary: Register a new source
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [alias, url, type]
+              properties:
+                alias: { type: string }
+                url: { type: string }
+                type: { type: string, enum: [github_repo, git_repo, local_dir] }
+                recursion_depth: { type: integer, default: 5 }
+      responses:
+        '201':
+          description: Source registered and queued for sync
+  /sources/{alias}:
+    delete:
+      summary: Remove a source by alias
+      parameters:
+        - in: path
+          name: alias
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Source removed }
+  /cache/refresh:
+    post:
+      summary: Trigger manual refresh of marketplace data
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sources:
+                  type: array
+                  items: { type: string }
+      responses:
+        '202': { description: Refresh queued }
+  /cache/ttl:
+    patch:
+      summary: Update cache TTL hours
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ttl_hours]
+              properties:
+                ttl_hours:
+                  type: integer
+                  minimum: 1
+                  maximum: 168
+      responses:
+        '200': { description: TTL updated }
+components:
+  schemas:
+    Extension:
+      type: object
+      required: [namespace, name, version, categories, install_status, source_alias]
+      properties:
+        namespace: { type: string }
+        name: { type: string }
+        version: { type: string }
+        author: { type: string }
+        categories:
+          type: array
+          items: { type: string }
+        install_status: { type: string, enum: [installed, not_installed, unknown] }
+        source_alias: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        cache_freshness: { type: string, format: date-time }
+    ExtensionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Extension'
+        - type: object
+          properties:
+            description: { type: string }
+            repository_url: { type: string }
+            readme: { type: string }
+            manifest_errors:
+              type: array
+              items: { type: string }
+    Source:
+      type: object
+      required: [alias, url, type, enabled]
+      properties:
+        alias: { type: string }
+        url: { type: string }
+        type: { type: string }
+        recursion_depth: { type: integer }
+        enabled: { type: boolean }
+        last_sync_at: { type: string, format: date-time }
+        error_state:
+          type: object
+          properties:
+            message: { type: string }
+            retry_at: { type: string, format: date-time }

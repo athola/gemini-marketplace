@@ -1,199 +1,121 @@
-# Quickstart: Gemini Marketplace CLI Extension
+# Quickstart – Gemini CLI Extension Marketplace
 
 ## Prerequisites
+- Rust 1.82.0 toolchain installed (the repo's `rust-toolchain.toml` pins 1.82.0; run `rustup toolchain install 1.82.0` once and `rustup show active-toolchain` inside the repo should report `1.82.0` before hacking).
+- Gemini CLI available in PATH with extensions enabled.
+- GitHub access token (if hitting private repos) configured via credential helpers.
 
-- Gemini CLI installed and authenticated.
-- Rust 1.82.0 toolchain (for building from source) or access to prebuilt binary.
-- Network access to GitHub or chosen marketplace sources (unless operating on cached data).
+## Environment Setup
 
-## Install the Marketplace Extension
-
-```bash
-git clone https://github.com/gemini-rs/marketplace.git
-cd marketplace
-cargo install --path . --force
-gemini extensions link "$(pwd)"
-gemini extensions list
-```
-
-Validate installation:
+Use the following `make` targets to keep formatting, linting, and testing consistent across the workspace.
 
 ```bash
-gemini marketplace --help
+make fmt          # cargo fmt --all
+make lint         # cargo clippy --workspace --all-targets --all-features -D warnings
+make test         # cargo test --workspace
 ```
 
-All runtime state lives under `$GEMINI_CONFIG/extensions/marketplace/` (defaults to `~/.gemini/extensions/marketplace/` when the environment variable is unset).
+Run `~/.codex/commands/session-auto-skill` at the start of a session to auto-load `token-conservation` and `cpu-gpu-performance`.
 
-Inside the Gemini chat UI you can invoke the same functionality with the slash command:
+Capture a CPU/GPU baseline (`uptime`, `ps -Ao pcpu,comm | head`, `nvidia-smi dmon`) before long test runs, per Constitution Principle VI.
+
+## Workspace Targets
+
+All commands run from the workspace root.
+
+*   `cargo build -p marketplace-core`: Builds the shared library and legacy CLI entrypoints (`gemini-marketplace` binary).
+*   `cargo build -p marketplace-mcp-server`: Compiles the MCP stdio server binary that Gemini launches during extension installs/runtime.
+*   `cargo build -p marketplace-mcp-cli`: Builds the developer-only MCP client harness. Use this binary for local testing; Gemini never invokes it.
+*   `cargo run -p marketplace-mcp-cli -- list`: Automatically spawns the MCP server (if not already running), issues the same MCP request Gemini would send, and prints the response for quick validation.
+
+### OpenAPI Contract
+
+The CLI mirrors the HTTP API described in `specs/001-build-a-gemini/contracts/marketplace-openapi.yaml`. Lint the contract with:
 
 ```bash
-/marketplace list --json
-/marketplace cache refresh --force
+make contract-lint
 ```
 
-For day-to-day development, the repo ships with a `Makefile`:
+`make contract-lint` uses `scripts/lint-openapi.sh` (Redocly CLI via `npx`).
 
-```bash
-make help          # show available shortcuts
-make fmt            # cargo fmt
-make lint           # cargo clippy --all-targets --all-features -- -D warnings
-make test           # cargo test
-make local-publish  # rebuild and sync into ~/.gemini/extensions/gemini-marketplace
-```
+## Common Workflows
 
-Use `make local-publish` to simulate a catalog release locally before pushing an official extension update.
-
-## Seed Default Source
-
-The extension ships with a curated source hosted at `https://github.com/athola/gemini-marketplace`. Confirm it is enabled:
-
-```bash
-gemini marketplace sources list
-```
-
-If disabled, re-enable it:
-
-```bash
-gemini marketplace sources add https://github.com/athola/gemini-marketplace
-```
-
-## Browse Extensions
-
-List extensions (uses cached data when available):
+### 1. List extensions
 
 ```bash
 gemini marketplace list
-```
-
-Navigate longer lists interactively:
-
-```bash
 gemini marketplace list --interactive
-# then type: next / prev / quit
 ```
 
-Inspect an extension’s details:
+### 2. Search/filter
 
 ```bash
-gemini marketplace show source-name/extension-name
+gemini marketplace search caching
+gemini marketplace search --category observability
 ```
 
-## Search the Catalog
+### 3. View details
 
 ```bash
-gemini marketplace search "analytics"
+gemini marketplace show curated/cache-inspector
 ```
 
-Apply filters:
+### 4. Manage sources
 
 ```bash
-gemini marketplace search --category data "analytics"
+gemini marketplace sources add https://github.com/org/extensions
+# The CLI prompts for an alias, which defaults to a sanitized slug.
+gemini marketplace sources list
+gemini marketplace sources remove org-extensions
 ```
 
-## Manage Sources
-
-Add a custom source (git repository or local path):
+### 5. Cache control
 
 ```bash
-gemini marketplace sources add https://github.com/example/private-marketplace
+gemini marketplace cache refresh --sources org-extensions curated
+gemini marketplace cache ttl set 24
 ```
 
-Remove a source:
+### 6. MCP server (Gemini runtime)
+
+Gemini launches the MCP server via stdio. Developers can mimic this manually:
 
 ```bash
-gemini marketplace sources remove example
+cargo run -p marketplace-mcp-server -- --stdio
 ```
 
-## Control Cache Freshness
+### 7. Local MCP harness
 
-Set the default TTL (hours):
+Auto-spawn the server and issue the same MCP calls Gemini sends:
 
 ```bash
-gemini marketplace cache ttl set 12
+cargo run -p marketplace-mcp-cli -- list --json
+cargo run -p marketplace-mcp-cli -- search caching
 ```
 
-Force a refresh immediately:
+## Testing & Verification
 
-```bash
-gemini marketplace cache refresh
-```
+*   Write failing tests (unit/integration/snapshot) that capture new CLI surfaces.
+*   For selective reruns, prefer `cargo test cli::list_command::tests::shows_pagination` and escalate to `cargo test` only before a pull request.
+*   Record token usage and CPU/GPU minutes in the pull request description as evidence for Principle VI.
+*   Run `make contract-lint` when touching REST/CLI contracts to ensure the OpenAPI file stays valid.
 
-Check marketplace status and diagnostics:
+## Observability Hooks
 
-```bash
-gemini marketplace status
-gemini marketplace status --json
-```
+*   Export human-readable logs with `RUST_LOG=info gemini marketplace list`.
+*   Enable JSON telemetry via `GEMINI_MARKETPLACE_LOG=json` for automated ingestion. The same environment variable applies to the MCP server (`cargo run -p marketplace-mcp-server`), so Gemini and the test CLI share identical log formats.
+*   Metrics include cache hits/misses, rate-limit wait durations, and aggregated search keywords. The MCP test CLI forwards server responses but does not implement its own logging pipeline.
 
-> Tip: When calling the extension via `gemini marketplace …`, ensure the
-> CLI is launched with the `run_shell_command` tool enabled, e.g.:
-> `gemini --allowed-tools run_shell_command marketplace status -- --json`.
+## Marketplace Filesystem Layout
 
-## Troubleshooting & Status
+Runtime state is stored in `$GEMINI_CONFIG/extensions/marketplace/` (or `GEMINI_MARKETPLACE_HOME` when set) with these directories:
 
-Check background refresh and rate-limit state:
+*   `cache/`: Normalized manifests, batches, and TTL metadata.
+*   `config/`: Preferences (`preferences.json`), sources registry (`sources.json`), and the refresh queue.
+*   `logs/`: JSON/human-readable telemetry exports.
 
-```bash
-gemini marketplace status
-```
+The cache initializer (`crate::marketplace::cache::init::ensure_layout`) creates this layout before commands run so developers can rely on consistent paths when adding new features or tests.
 
-Enable verbose logging for deeper diagnostics:
+### Permissions & Local Publish
 
-```bash
-gemini marketplace list --verbose
-```
-
-When network issues occur, the CLI continues serving cached data and queues refresh jobs. Use `status` to monitor progress.
-
-## Demo Workflow
-
-This workflow demonstrates the extension's capabilities in an isolated environment.
-
-1. **Bootstrap an isolated demo environment**
-
-    ```bash
-    export GEMINI_MARKETPLACE_HOME="$(mktemp -d)"
-    export GEMINI_MARKETPLACE_LOG=info
-    export GEMINI_MARKETPLACE_LOG_FORMAT=text
-```
-
-2. **Show current configuration**
-
-    ```bash
-    ls "$GEMINI_MARKETPLACE_HOME"
-    cat "$GEMINI_MARKETPLACE_HOME/config/preferences.json"
-    ```
-
-3. **Demonstrate basic CLI commands**
-
-    ```bash
-    gemini marketplace --help
-    gemini marketplace list --json
-    gemini marketplace cache refresh
-    ```
-
-4. **Inspect the refresh queue**
-
-    ```bash
-    cat "$GEMINI_MARKETPLACE_HOME/config/refresh_queue.json"
-    ```
-
-5. **Adjust the cache TTL**
-
-    ```bash
-    gemini marketplace cache ttl set 12
-    cat "$GEMINI_MARKETPLACE_HOME/config/preferences.json" | jq '.cache_ttl_hours'
-    ```
-
-6. **Review logs**
-
-    ```bash
-    cat "$GEMINI_MARKETPLACE_HOME/logs/marketplace.log" 2>/dev/null || echo "logs emitted to stderr"
-    ```
-
-7. **Tear down the demo environment**
-
-    ```bash
-    rm -rf "$GEMINI_MARKETPLACE_HOME"
-    unset GEMINI_MARKETPLACE_HOME GEMINI_MARKETPLACE_LOG GEMINI_MARKETPLACE_LOG_FORMAT
-    ```
+`make local-publish` copies the extension into `$GEMINI_CONFIG/extensions/{gemini-marketplace,marketplace}`. Ensure the target path is writable (either run `chown` once or set `GEMINI_CONFIG` to a directory you own, e.g. `export GEMINI_CONFIG=$HOME/.gemini-dev`). See README's Environment Variables section for additional overrides.

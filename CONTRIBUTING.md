@@ -4,19 +4,16 @@ We welcome contributions to the Gemini Marketplace! This document outlines the b
 
 ## How to Contribute
 
-1.  **Fork the repository:** Start by forking the [Gemini Marketplace repository](https://github.com/gemini-rs/marketplace) to your own GitHub account.
-
-2.  **Create a branch:** Create a new branch for your changes. Use a descriptive name for your branch, such as `feature/add-new-command` or `fix/issue-123`.
-
-3.  **Make your changes:** Make your changes to the codebase. Please ensure that your code follows the existing style and conventions.
-
-4.  **Run the tests:** Before submitting your changes, please run the test suite to ensure that everything is working as expected.
+1.  **Fork the repository** and create a branch for your changes.
+2.  **Make your changes**, following the existing code style and conventions.
+3.  **Run the tests, linter, and formatter** to ensure that your code is correct and consistent.
 
     ```bash
-    cargo test
+    make test
+    make lint
+    make fmt
     ```
-
-5.  **Submit a pull request:** Once you're happy with your changes, submit a pull request to the `main` branch of the Gemini Marketplace repository. Please provide a clear and concise description of your changes in the pull request.
+4.  **Submit a pull request** with a clear and concise description of your changes.
 
 ## Code of Conduct
 
